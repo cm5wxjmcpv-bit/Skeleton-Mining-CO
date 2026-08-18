@@ -186,15 +186,108 @@ canvas {
 }
 
 @media (max-width: 650px) {
-  .app-shell { padding:8px; }
-  .topbar { align-items:flex-start; flex-direction:column; }
-  .stats { width:100%; }
-  .stats div { flex:1; min-width:0; }
-  .mine-toolbar, .placement-row { align-items:stretch; flex-direction:column; }
-  .mine-toolbar .placement-actions, .placement-actions { width:100%; }
-  .placement-actions button { flex:1; }
-  .canvas-wrap { min-height:520px; overflow:hidden; }
-  canvas { min-height:520px; object-fit:cover; }
-  .control-grid { grid-template-columns:1fr; }
+  html, body { width:100%; overflow-x:hidden; }
+
+  .app-shell {
+    padding:6px;
+    padding-left:max(6px, env(safe-area-inset-left));
+    padding-right:max(6px, env(safe-area-inset-right));
+  }
+
+  .topbar {
+    align-items:center;
+    flex-direction:row;
+    gap:8px;
+    margin-bottom:7px;
+  }
+  .topbar > div:first-child { min-width:0; }
+  .eyebrow { display:none; }
+  h1 { font-size:1.05rem; white-space:nowrap; }
+
+  .stats {
+    width:auto;
+    flex:1;
+    justify-content:flex-end;
+    gap:4px;
+  }
+  .stats div {
+    flex:0 1 58px;
+    min-width:48px;
+    padding:4px 5px;
+    border-radius:7px;
+  }
+  .stats span { font-size:.55rem; }
+  .stats strong { font-size:.88rem; }
+
+  .mine-card { border-radius:10px; }
+
+  .mine-toolbar, .placement-row, .ore-strip {
+    padding:7px 8px;
+    gap:7px;
+  }
+  .mine-toolbar, .placement-row {
+    align-items:center;
+    flex-direction:row;
+  }
+  .mine-toolbar > div:first-child,
+  .placement-row > div:first-child { min-width:0; flex:1; }
+  .mine-toolbar strong, .placement-row strong { font-size:.82rem; }
+  .mine-toolbar span, .placement-row span {
+    font-size:.66rem;
+    line-height:1.2;
+    margin-top:2px;
+  }
+
+  .mine-toolbar .placement-actions,
+  .placement-row .placement-actions {
+    width:auto;
+    flex:0 0 auto;
+    gap:4px;
+  }
+  .placement-actions button {
+    flex:0 0 auto;
+    padding:6px 7px;
+    font-size:.68rem;
+    border-radius:7px;
+  }
+
+  .ore-strip {
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:none;
+  }
+  .ore-strip::-webkit-scrollbar { display:none; }
+  .ore-strip > strong { flex:0 0 auto; font-size:.74rem; }
+  .ore-legend { flex-wrap:nowrap; gap:4px; }
+  .ore-chip {
+    flex:0 0 auto;
+    gap:4px;
+    padding:3px 6px;
+    font-size:.62rem;
+  }
+  .ore-dot { width:8px; height:8px; }
+
+  .canvas-wrap {
+    min-height:0;
+    height:auto;
+    overflow:hidden;
+  }
+  canvas {
+    width:100%;
+    height:auto;
+    min-height:0;
+    max-height:none;
+    object-fit:contain;
+  }
+
+  .message-overlay {
+    padding:12px;
+    font-size:1.05rem;
+  }
+
+  .control-grid { grid-template-columns:1fr; margin-top:7px; gap:7px; }
   .control-grid .panel-section:nth-child(3), .levels-panel { grid-column:auto; }
+  .panel-section { padding:8px; }
+  .level-buttons { grid-template-columns:repeat(5,1fr); gap:4px; }
+  .level-buttons button { padding:6px 0; }
 }
