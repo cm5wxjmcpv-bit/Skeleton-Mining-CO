@@ -4,10 +4,147 @@
 .crew-menu-copy{margin:0 0 12px;color:var(--muted);font-size:.82rem;line-height:1.4}
 .crew-toolbar{max-width:720px;margin-left:auto;margin-right:auto}
 .result-actions{grid-template-columns:repeat(4,1fr)}
+
 @media(max-width:700px){
-  .mine-card{border-radius:10px}
-  .canvas-wrap canvas{max-width:none;width:100%;height:auto}
   .crew-toolbar{grid-template-columns:auto 1fr auto}
   .crew-menu-panel{padding:10px}
   .result-actions{grid-template-columns:1fr}
+
+  /* The live mine is a fixed, one-screen mobile play surface. */
+  body.mine-play-screen{
+    height:var(--app-height,100dvh);
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  body.mine-play-screen .app-shell{
+    height:var(--app-height,100dvh);
+    min-height:0;
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    padding:3px;
+    padding-left:max(3px,env(safe-area-inset-left));
+    padding-right:max(3px,env(safe-area-inset-right));
+  }
+
+  /* On the play screen, keep only the counters in the global header. */
+  body.mine-play-screen .topbar{
+    flex:0 0 auto;
+    display:grid;
+    grid-template-columns:1fr;
+    grid-template-rows:auto;
+    gap:0;
+    margin:0 0 3px;
+  }
+  body.mine-play-screen .brand,
+  body.mine-play-screen .top-actions{display:none}
+  body.mine-play-screen .stats{
+    grid-column:1;
+    grid-row:1;
+    width:100%;
+    gap:3px;
+  }
+  body.mine-play-screen .stats div{
+    min-width:0;
+    padding:2px 4px;
+    border-radius:7px;
+  }
+  body.mine-play-screen .stats span{font-size:.5rem;line-height:1}
+  body.mine-play-screen .stats strong{font-size:.82rem;line-height:1.15;margin-top:1px}
+
+  #mineScreen.active-screen{
+    flex:1 1 auto;
+    min-height:0;
+    display:flex;
+    overflow:hidden;
+  }
+  #mineScreen .mine-card{
+    flex:1 1 auto;
+    min-height:0;
+    width:100%;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    border-radius:8px;
+  }
+
+  /* Start / End always stay at the top and use the full available width. */
+  #mineScreen .mine-toolbar{
+    flex:0 0 auto;
+    padding:3px 4px;
+    min-height:36px;
+  }
+  #mineScreen .mine-toolbar>div:first-child{display:none}
+  #mineScreen .mine-toolbar .placement-actions{
+    width:100%;
+    display:flex;
+    gap:3px;
+    flex-wrap:nowrap;
+  }
+  #mineScreen .mine-toolbar .placement-actions button{
+    flex:1 1 0;
+    min-width:0;
+    min-height:30px;
+    padding:4px 3px;
+    font-size:.65rem;
+    border-radius:6px;
+  }
+
+  #mineScreen .ore-strip{
+    flex:0 0 auto;
+    min-height:30px;
+    padding:3px 5px;
+    gap:4px;
+    overflow-x:auto;
+    flex-wrap:nowrap;
+  }
+  #mineScreen .ore-strip>strong{font-size:.62rem;white-space:nowrap}
+  #mineScreen .ore-legend{gap:3px;flex-wrap:nowrap}
+  #mineScreen .ore-chip{font-size:.55rem;padding:2px 5px;gap:3px}
+  #mineScreen .ore-dot{width:7px;height:7px}
+
+  /* The mine consumes every remaining pixel but never creates page scroll. */
+  #mineScreen .canvas-wrap{
+    flex:1 1 auto;
+    min-height:0;
+    width:100%;
+    padding:2px;
+    overflow:hidden;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  #mineScreen .canvas-wrap canvas{
+    display:block;
+    width:auto;
+    height:auto;
+    max-width:100%;
+    max-height:100%;
+  }
+
+  /* Placement controls remain available before a run, then disappear while mining. */
+  #mineScreen .placement-row{
+    flex:0 0 auto;
+    min-height:29px;
+    padding:2px 4px;
+    gap:4px;
+  }
+  #mineScreen .placement-row strong{display:none}
+  #mineScreen .placement-row>div:first-child{min-width:0;flex:1}
+  #mineScreen .placement-row span{
+    margin:0;
+    font-size:.53rem;
+    line-height:1.1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #mineScreen .placement-row .placement-actions{flex:0 0 auto;gap:2px}
+  #mineScreen .placement-row .placement-actions button{
+    min-height:24px;
+    padding:2px 5px;
+    font-size:.54rem;
+    border-radius:5px;
+  }
+  body.round-running #mineScreen .placement-row{display:none}
 }
