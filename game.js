@@ -27,10 +27,10 @@
 
   const ORES = [
     { id: 'copper', name: 'Copper', unlockLevel: 1, value: 5, color: '#b87333' },
-    { id: 'iron', name: 'Iron', unlockLevel: 5, value: 12, color: '#9ea7ad' },
-    { id: 'silver', name: 'Silver', unlockLevel: 10, value: 30, color: '#dce4ea' },
-    { id: 'gold', name: 'Gold', unlockLevel: 15, value: 70, color: '#e1b84b' },
-    { id: 'emerald', name: 'Emerald', unlockLevel: 20, value: 160, color: '#46c98a' }
+    { id: 'iron', name: 'Iron', unlockLevel: 6, value: 12, color: '#9ea7ad' },
+    { id: 'silver', name: 'Silver', unlockLevel: 11, value: 30, color: '#dce4ea' },
+    { id: 'gold', name: 'Gold', unlockLevel: 20, value: 70, color: '#e1b84b' },
+    { id: 'emerald', name: 'Emerald', unlockLevel: 25, value: 160, color: '#46c98a' }
   ];
   const ORE_BY_ID = Object.fromEntries(ORES.map((ore, index) => [ore.id, { ...ore, index }]));
 
@@ -119,22 +119,15 @@
     return Math.max(0.18, 0.78 * Math.pow(0.88, save.upgrades.speed));
   }
 
-  function oreChanceForLevel(level) {
-    return Math.min(0.11, 0.045 + (level - 1) * 0.0035);
+  function oreChanceForOre(ore, level) {
+    if (!ore || level < ore.unlockLevel) return 0;
+    const growthStep = Math.min(4, level - ore.unlockLevel);
+    return 0.14 + growthStep * 0.02;
   }
 
   function activeOresForLevel(level) {
     const unlocked = ORES.filter(ore => ore.unlockLevel <= level);
     return unlocked.slice(-3);
-  }
-
-  function chooseOre(activeOres) {
-    if (activeOres.length === 1) return activeOres[0];
-    const roll = Math.random();
-    if (activeOres.length === 2) return roll < 0.65 ? activeOres[0] : activeOres[1];
-    if (roll < 0.55) return activeOres[0];
-    if (roll < 0.85) return activeOres[1];
-    return activeOres[2];
   }
 
   function validLayout(layout, cfg) {
@@ -143,31 +136,36 @@
     return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < cfg.width && y < cfg.height;
   }
 
-  function createLevelLayout() {
+  function createLevelLayout(fixedKey = null) {
     const cfg = levelConfig();
     const level = currentLevelNumber();
     const activeOres = activeOresForLevel(level);
-    const key = {
+    const key = fixedKey || {
       x: Math.floor(Math.random() * cfg.width),
       y: Math.floor(Math.random() * cfg.height)
     };
     const ores = [];
-    const chance = oreChanceForLevel(level);
+    const oreChances = Object.fromEntries(
+      activeOres.map(ore => [ore.id, oreChanceForOre(ore, level)])
+    );
 
     for (let y = 0; y < cfg.height; y++) {
       for (let x = 0; x < cfg.width; x++) {
         if (x === key.x && y === key.y) continue;
-        if (Math.random() >= chance) continue;
-        const ore = chooseOre(activeOres);
-        ores.push({ x, y, type: ore.id });
+        for (const ore of activeOres) {
+          if (Math.random() < oreChances[ore.id]) {
+            ores.push({ x, y, type: ore.id });
+          }
+        }
       }
     }
 
     return {
+      oreModelVersion: 2,
       key,
       ores,
       activeOres: activeOres.map(ore => ore.id),
-      oreChance: chance
+      oreChances
     };
   }
 
@@ -175,9 +173,10 @@
     const cfg = levelConfig();
     const key = String(currentLevelNumber());
     const stored = save.levelLayouts[key];
-    if (validLayout(stored, cfg)) return stored;
+    if (validLayout(stored, cfg) && stored.oreModelVersion === 2) return stored;
 
-    const layout = createLevelLayout();
+    const preservedKey = validLayout(stored, cfg) ? stored.key : null;
+    const layout = createLevelLayout(preservedKey);
     save.levelLayouts[key] = layout;
     persist();
     return layout;
@@ -188,15 +187,23 @@
     const layout = layoutForLevel();
     mine = [];
 
-    const oreMap = new Map(layout.ores.map(ore => [`${ore.x},${ore.y}`, ore.type]));
+    const oreMap = new Map();
+    for (const deposit of layout.ores) {
+      const cellKey = `${deposit.x},${deposit.y}`;
+      const existing = oreMap.get(cellKey) || [];
+      if (existing.length < 3 && !existing.includes(deposit.type)) existing.push(deposit.type);
+      oreMap.set(cellKey, existing);
+    }
+
     for (let y = 0; y < cfg.height; y++) {
       const row = [];
       for (let x = 0; x < cfg.width; x++) {
-        const oreType = oreMap.get(`${x},${y}`) || null;
+        const oreTypes = [...(oreMap.get(`${x},${y}`) || [])];
         row.push({
           x, y,
-          type: oreType || 'rock',
-          oreType,
+          type: oreTypes.length ? 'ore' : 'rock',
+          oreTypes,
+          extractedOres: [],
           hp: cfg.rockHp,
           maxHp: cfg.rockHp,
           mined: false,
@@ -279,13 +286,16 @@
     return best;
   }
 
-  function rewardOre(cell) {
-    if (!cell.oreType) return;
-    const ore = ORE_BY_ID[cell.oreType];
-    if (!ore) return;
-    save.gold += ore.value;
-    save.oreTotals[cell.oreType] = (save.oreTotals[cell.oreType] || 0) + 1;
-    persist();
+  function rewardOres(oreTypes) {
+    let changed = false;
+    for (const oreType of oreTypes) {
+      const ore = ORE_BY_ID[oreType];
+      if (!ore) continue;
+      save.gold += ore.value;
+      save.oreTotals[oreType] = (save.oreTotals[oreType] || 0) + 1;
+      changed = true;
+    }
+    if (changed) persist();
   }
 
   function mineCell(cell, power = 1) {
@@ -294,7 +304,9 @@
     if (cell.hp > 0) return;
 
     cell.mined = true;
-    rewardOre(cell);
+    const remainingOres = cell.oreTypes.filter(type => !cell.extractedOres.includes(type));
+    rewardOres(remainingOres);
+    cell.extractedOres.push(...remainingOres);
 
     if (cell.hasKey) finishRound(true);
   }
@@ -348,10 +360,16 @@
     draw();
   }
 
+  function eligibleProspectorOres(cell) {
+    if (!cell || cell.mined || cell.hasKey) return [];
+    return cell.oreTypes.filter(type => {
+      const ore = ORE_BY_ID[type];
+      return ore && ore.index <= save.specialists.trainingTier && !cell.extractedOres.includes(type);
+    });
+  }
+
   function prospectorCanMine(cell) {
-    if (!cell.oreType || cell.hasKey || cell.mined) return false;
-    const ore = ORE_BY_ID[cell.oreType];
-    return ore && ore.index <= save.specialists.trainingTier;
+    return eligibleProspectorOres(cell).length > 0;
   }
 
   function findProspectorTarget(prospector) {
@@ -359,10 +377,11 @@
     let bestScore = -Infinity;
     for (const row of mine) {
       for (const cell of row) {
-        if (!prospectorCanMine(cell)) continue;
-        const ore = ORE_BY_ID[cell.oreType];
+        const eligible = eligibleProspectorOres(cell);
+        if (eligible.length === 0) continue;
+        const bestOreValue = Math.max(...eligible.map(type => ORE_BY_ID[type].value));
         const distance = Math.abs(cell.x - prospector.x) + Math.abs(cell.y - prospector.y);
-        const score = ore.value * 100 - distance;
+        const score = bestOreValue * 100 - distance;
         if (score > bestScore) {
           bestScore = score;
           best = cell;
@@ -370,6 +389,13 @@
       }
     }
     return best;
+  }
+
+  function extractProspectorOres(cell) {
+    const eligible = eligibleProspectorOres(cell);
+    if (eligible.length === 0) return;
+    rewardOres(eligible);
+    cell.extractedOres.push(...eligible);
   }
 
   function updateProspectors(dt) {
@@ -391,8 +417,8 @@
       else if (prospector.y < target.y) prospector.y++;
       else if (prospector.y > target.y) prospector.y--;
       else {
-        mineCell(target, 2);
-        if (target.mined) prospector.target = null;
+        extractProspectorOres(target);
+        prospector.target = null;
       }
     }
   }
@@ -471,12 +497,14 @@
   }
 
   function renderOreLegend() {
-    const active = activeOresForLevel(currentLevelNumber());
+    const level = currentLevelNumber();
+    const active = activeOresForLevel(level);
     ui.oreLegend.innerHTML = '';
     for (const ore of active) {
       const chip = document.createElement('div');
       chip.className = 'ore-chip';
-      chip.innerHTML = `<span class="ore-dot" style="background:${ore.color}"></span><strong>${ore.name}</strong><span>${ore.value}g</span>`;
+      const chance = Math.round(oreChanceForOre(ore, level) * 100);
+      chip.innerHTML = `<span class="ore-dot" style="background:${ore.color}"></span><strong>${ore.name}</strong><span>${ore.value}g · ${chance}%</span>`;
       ui.oreLegend.appendChild(chip);
     }
   }
@@ -563,8 +591,13 @@
 
     const density = document.createElement('div');
     density.className = 'crew-card subtle';
-    const orePercent = Math.round(oreChanceForLevel(level) * 100);
-    density.innerHTML = `<strong>Level Ore Mix</strong><span>${orePercent}% ore chance. Active: ${active.map(o => o.name).join(', ')}.${layout ? ` ${layout.ores.length} ore deposits in this layout.` : ''}</span>`;
+    const mixText = active
+      .map(ore => `${ore.name} ${Math.round(oreChanceForOre(ore, level) * 100)}%`)
+      .join(', ');
+    const occupiedBlocks = layout
+      ? new Set(layout.ores.map(ore => `${ore.x},${ore.y}`)).size
+      : 0;
+    density.innerHTML = `<strong>Level Ore Mix</strong><span>${mixText}. Up to 3 ores can share one block.${layout ? ` ${layout.ores.length} ore deposits across ${occupiedBlocks} blocks.` : ''}</span>`;
     ui.crewList.appendChild(density);
 
     renderSpecialists();
@@ -602,13 +635,25 @@
     });
   }
 
-  function drawOreMarker(tile, x, y, cell) {
-    const ore = ORE_BY_ID[tile.oreType];
-    if (!ore) return;
-    ctx.fillStyle = ore.color;
-    ctx.beginPath();
-    ctx.arc(x + cell / 2, y + cell / 2, cell * .14, 0, Math.PI * 2);
-    ctx.fill();
+  function drawOreMarkers(tile, x, y, cell) {
+    const oreTypes = tile.oreTypes || [];
+    if (oreTypes.length === 0) return;
+
+    const positions = oreTypes.length === 1
+      ? [[0.5, 0.5]]
+      : oreTypes.length === 2
+        ? [[0.38, 0.5], [0.62, 0.5]]
+        : [[0.5, 0.35], [0.37, 0.62], [0.63, 0.62]];
+
+    oreTypes.slice(0, 3).forEach((oreType, index) => {
+      const ore = ORE_BY_ID[oreType];
+      if (!ore) return;
+      const [px, py] = positions[index];
+      ctx.fillStyle = ore.color;
+      ctx.beginPath();
+      ctx.arc(x + cell * px, y + cell * py, cell * .10, 0, Math.PI * 2);
+      ctx.fill();
+    });
   }
 
   function draw() {
@@ -634,8 +679,8 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🔑', x + cell / 2, y + cell / 2);
-          } else if (tile.oreType) {
-            drawOreMarker(tile, x, y, cell);
+          } else if (tile.oreTypes.length) {
+            drawOreMarkers(tile, x, y, cell);
           }
         } else {
           ctx.fillStyle = '#332920';
