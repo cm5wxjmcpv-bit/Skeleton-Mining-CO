@@ -199,6 +199,17 @@ test('Gold Digger unlocks when Level 3 is reached', () => {
   assert.match(g.el('crewList').children[1].innerHTML, /UNLOCKED/);
 });
 
+test('Gold Digger roams outside standard radius and collects distant gold', () => {
+  const g = boot({
+    randomValues: mineRandoms({ goldCells: [[8,5]], keyX: 4, keyY: 0 }),
+    savedState: { gold: 0, maxLevel: 3, selectedLevel: 1, upgrades: { radius: 0, speed: 0, crew: 0, time: 0 } }
+  });
+  g.place(0, 0);
+  g.el('startButton').click();
+  g.step(3.0);
+  assert(g.save().gold > 0, 'Gold Digger should collect gold outside the standard skeleton mining radius');
+});
+
 let failures = 0;
 for (const [name, fn] of tests) {
   try {
