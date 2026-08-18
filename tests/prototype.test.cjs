@@ -14,12 +14,17 @@ class FakeElement {
   constructor(id = '') {
     this.id = id;
     this.textContent = '';
-    this.innerHTML = '';
+    this._innerHTML = '';
     this.disabled = false;
     this.className = '';
     this.children = [];
     this.listeners = {};
     this.classList = new FakeClassList();
+  }
+  get innerHTML() { return this._innerHTML; }
+  set innerHTML(value) {
+    this._innerHTML = String(value);
+    if (value === '') this.children = [];
   }
   addEventListener(type, fn) {
     (this.listeners[type] ||= []).push(fn);
