@@ -42,7 +42,7 @@
         </div>
 
         <div class="canvas-wrap">
-          <canvas id="mineCanvas" width="1400" height="900" aria-label="Mine play area"></canvas>
+          <canvas id="mineCanvas" width="900" height="1250" aria-label="Mine play area"></canvas>
           <div id="messageOverlay" class="message-overlay hidden"></div>
         </div>
 
@@ -57,12 +57,16 @@
           </div>
         </div>
       </section>
+    </section>
 
-      <section class="panel-section crew-panel">
-        <div class="section-heading">
-          <div><h2>Crew Loadout</h2><span id="crewCount">2 slots</span></div>
-          <button id="resetCrewButton" class="compact">Reset Crew</button>
-        </div>
+    <section id="crewScreen" class="screen">
+      <div class="screen-toolbar crew-toolbar">
+        <button id="crewBackButton">← Results</button>
+        <div><strong>Crew Loadout</strong><span id="crewCount">2 standard slots</span></div>
+        <button id="resetCrewButton" class="compact">Reset Crew</button>
+      </div>
+      <section class="panel-section crew-menu-panel">
+        <p class="crew-menu-copy">Choose the miners you want for the next attempt. Your loadout is remembered until you change it.</p>
         <div id="crewPicker" class="crew-picker"></div>
         <div id="prospectorSummary" class="specialist-summary"></div>
       </section>
@@ -115,6 +119,7 @@
         <div class="result-actions">
           <button id="resultMineButton" class="primary">Mine Again</button>
           <button id="resultUpgradeButton">Upgrades</button>
+          <button id="resultCrewButton">Crew Loadout</button>
           <button id="resultArtifactsButton" class="hidden">Artifacts</button>
         </div>
       </div>
@@ -142,9 +147,11 @@
   </div>
 
   <script src="game-part1.js"></script>
+  <script src="mobile-layout-patch.js"></script>
   <script src="game-part2.js"></script>
   <script src="game-part3.js"></script>
   <script src="game-patch.js"></script>
   <script src="game-part4.js"></script>
+  <script src="crew-menu-post.js"></script>
 </body>
 </html>
