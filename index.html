@@ -10,85 +10,136 @@
 <body>
   <main class="app-shell">
     <header class="topbar">
-      <div>
-        <p class="eyebrow">PROTOTYPE</p>
-        <h1>Skeleton Mining CO.</h1>
-      </div>
+      <div class="brand"><span class="eyebrow">SKELETON MINING CO.</span><strong id="screenTitle">Mine</strong></div>
       <div class="stats">
         <div><span>Level</span><strong id="levelStat">1</strong></div>
-        <div><span>Gold</span><strong id="goldStat">0</strong></div>
+        <div><span>Value</span><strong id="currencyStat">0</strong></div>
         <div><span>Time</span><strong id="timeStat">45.0</strong></div>
+      </div>
+      <div class="top-actions">
+        <button id="artifactsButton" class="compact hidden">Artifacts</button>
+        <button id="newGameButton" class="compact danger-link">New Game</button>
       </div>
     </header>
 
-    <section class="mine-card">
-      <div class="mine-toolbar">
-        <div>
-          <strong id="levelTitle">Level 1</strong>
-          <span id="levelGoal">Find the Golden Key before time runs out.</span>
+    <section id="mineScreen" class="screen active-screen">
+      <section class="mine-card">
+        <div class="mine-toolbar">
+          <div>
+            <strong id="levelTitle">Level 1</strong>
+            <span id="levelGoal">Find the Golden Key before time runs out.</span>
+          </div>
+          <div class="placement-actions">
+            <button id="blastButton" class="hidden">Place Blast</button>
+            <button id="endAttemptButton" disabled>End Attempt</button>
+            <button id="startButton" class="primary">Start Mining</button>
+          </div>
         </div>
-        <div class="placement-actions">
-          <button id="endAttemptButton" disabled>End Attempt</button>
-          <button id="startButton" class="primary">Start Mining</button>
-        </div>
-      </div>
 
-      <div class="ore-strip">
-        <strong>Active Ores</strong>
-        <div id="oreLegend" class="ore-legend"></div>
-      </div>
-
-      <div class="canvas-wrap">
-        <canvas id="mineCanvas" width="1400" height="900" aria-label="Mine play area"></canvas>
-        <div id="messageOverlay" class="message-overlay hidden"></div>
-      </div>
-
-      <div class="placement-row">
-        <div>
-          <strong>Deployment</strong>
-          <span id="placementHint">Tap the mine to place Skeleton 1.</span>
+        <div class="ore-strip">
+          <strong>Active Ores</strong>
+          <div id="oreLegend" class="ore-legend"></div>
         </div>
-        <div class="placement-actions">
-          <button id="undoButton">Undo</button>
-          <button id="resetPlacementButton">Reset</button>
+
+        <div class="canvas-wrap">
+          <canvas id="mineCanvas" width="1400" height="900" aria-label="Mine play area"></canvas>
+          <div id="messageOverlay" class="message-overlay hidden"></div>
         </div>
-      </div>
+
+        <div class="placement-row">
+          <div>
+            <strong>Deployment</strong>
+            <span id="placementHint">Choose your crew, then tap the mine to place Skeleton 1.</span>
+          </div>
+          <div class="placement-actions">
+            <button id="undoButton">Undo</button>
+            <button id="resetPlacementButton">Reset</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel-section crew-panel">
+        <div class="section-heading">
+          <div><h2>Crew Loadout</h2><span id="crewCount">2 slots</span></div>
+          <button id="resetCrewButton" class="compact">Reset Crew</button>
+        </div>
+        <div id="crewPicker" class="crew-picker"></div>
+        <div id="prospectorSummary" class="specialist-summary"></div>
+      </section>
     </section>
 
-    <section class="control-grid">
-      <section class="panel-section">
-        <div class="section-heading">
-          <h2>Crew</h2>
-          <span id="crewCount">2 standard</span>
+    <section id="upgradeScreen" class="screen">
+      <div class="screen-toolbar sticky-toolbar">
+        <button id="backToMineButton">← Mine</button>
+        <div><strong>Upgrade Tree</strong><span>Drag to move. Pinch or use −/+ to zoom.</span></div>
+        <div class="tree-tools">
+          <button id="zoomOutButton" class="compact">−</button>
+          <button id="centerTreeButton" class="compact">Center</button>
+          <button id="zoomInButton" class="compact">+</button>
         </div>
-        <div id="crewList" class="crew-list"></div>
-      </section>
+      </div>
+      <div id="treeViewport" class="tree-viewport">
+        <div id="treeWorld" class="tree-world">
+          <svg id="treeLines" class="tree-lines" viewBox="0 0 1600 1200" preserveAspectRatio="none"></svg>
+          <div id="treeNodes"></div>
+        </div>
+      </div>
+      <aside id="upgradeDetail" class="upgrade-detail hidden">
+        <button id="closeUpgradeDetail" class="detail-close" aria-label="Close">×</button>
+        <span id="detailKind" class="detail-kind"></span>
+        <h2 id="detailName"></h2>
+        <p id="detailDesc"></p>
+        <div id="detailRank" class="detail-rank"></div>
+        <div id="detailEffect" class="detail-effect"></div>
+        <button id="buyUpgradeButton" class="primary wide">Upgrade</button>
+      </aside>
+    </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <h2>Specialists</h2>
-          <span>Purchase & train</span>
-        </div>
-        <div id="specialistList" class="specialist-list"></div>
-      </section>
+    <section id="artifactScreen" class="screen">
+      <div class="screen-toolbar">
+        <button id="artifactBackButton">← Back</button>
+        <div><strong>Artifacts</strong><span id="artifactProgress">0/5 found</span></div>
+        <div></div>
+      </div>
+      <div id="artifactGrid" class="artifact-grid"></div>
+    </section>
 
-      <section class="panel-section">
-        <div class="section-heading">
-          <h2>Upgrades</h2>
-          <button id="resetSaveButton" class="danger-link">New Playthrough</button>
+    <section id="resultScreen" class="screen results-screen">
+      <div class="results-card">
+        <span id="resultStatus" class="result-status">LEVEL COMPLETE</span>
+        <h1 id="resultTitle">Level 1 Results</h1>
+        <div id="resultOreList" class="result-ores"></div>
+        <div id="resultBreakdown" class="result-breakdown"></div>
+        <div class="result-total"><span>Upgrade Value Earned</span><strong id="resultEarned">0</strong></div>
+        <div class="result-total secondary"><span>Total Upgrade Value</span><strong id="resultTotal">0</strong></div>
+        <div class="result-actions">
+          <button id="resultMineButton" class="primary">Mine Again</button>
+          <button id="resultUpgradeButton">Upgrades</button>
+          <button id="resultArtifactsButton" class="hidden">Artifacts</button>
         </div>
-        <div id="upgradeList" class="upgrade-list"></div>
-      </section>
-
-      <section class="panel-section levels-panel">
-        <div class="section-heading">
-          <h2>Levels</h2>
-          <span>20 levels</span>
-        </div>
-        <div id="levelButtons" class="level-buttons"></div>
-      </section>
+      </div>
     </section>
   </main>
+
+  <div id="artifactFoundModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <span class="eyebrow">ARTIFACT FOUND</span>
+      <h2 id="artifactFoundName"></h2>
+      <p id="artifactFoundDesc"></p>
+      <button id="keepArtifactButton" class="primary wide">Keep Artifact</button>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2 id="confirmTitle">Are you sure?</h2>
+      <p id="confirmText"></p>
+      <div class="modal-actions">
+        <button id="confirmCancel">Cancel</button>
+        <button id="confirmAccept" class="danger">Confirm</button>
+      </div>
+    </div>
+  </div>
 
   <script src="game.js"></script>
 </body>
