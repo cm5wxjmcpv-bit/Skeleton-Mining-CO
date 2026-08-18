@@ -11,6 +11,7 @@
     levelTitle: document.getElementById('levelTitle'),
     levelGoal: document.getElementById('levelGoal'),
     startButton: document.getElementById('startButton'),
+    endAttemptButton: document.getElementById('endAttemptButton'),
     undoButton: document.getElementById('undoButton'),
     resetPlacementButton: document.getElementById('resetPlacementButton'),
     resetSaveButton: document.getElementById('resetSaveButton'),
@@ -31,7 +32,7 @@
   ];
 
   const UPGRADE_DEFS = {
-    radius: { name: 'Mining Radius', desc: '+0.45 tiles to every standard skeleton.', base: 25, scale: 1.85 },
+    radius: { name: 'Mining Radius', desc: '+0.15 tiles to every standard skeleton.', base: 25, scale: 1.85 },
     speed: { name: 'Mining Speed', desc: 'Skeletons strike 12% faster per rank.', base: 30, scale: 1.9 },
     crew: { name: 'Crew Size', desc: '+1 standard skeleton you can deploy.', base: 120, scale: 2.4 },
     time: { name: 'Longer Shift', desc: '+4 seconds to every round.', base: 70, scale: 2.1 }
@@ -41,7 +42,8 @@
     gold: 0,
     maxLevel: 1,
     selectedLevel: 1,
-    upgrades: { radius: 0, speed: 0, crew: 0, time: 0 }
+    upgrades: { radius: 0, speed: 0, crew: 0, time: 0 },
+    keyLocations: {}
   };
 
   let save = loadSave();
@@ -63,7 +65,8 @@
       return {
         ...structuredClone(DEFAULT_SAVE),
         ...parsed,
-        upgrades: { ...DEFAULT_SAVE.upgrades, ...(parsed.upgrades || {}) }
+        upgrades: { ...DEFAULT_SAVE.upgrades, ...(parsed.upgrades || {}) },
+        keyLocations: { ...(parsed.keyLocations || {}) }
       };
     } catch {
       return structuredClone(DEFAULT_SAVE);
@@ -80,7 +83,7 @@
   }
 
   function radiusTiles() {
-    return 1.7 + save.upgrades.radius * 0.45;
+    return 1.25 + save.upgrades.radius * 0.15;
   }
 
   function crewSize() {
@@ -99,6 +102,27 @@
     return save.maxLevel >= 3;
   }
 
+  function keyLocationForLevel() {
+    const cfg = levelConfig();
+    const key = String(levelIndex + 1);
+    const stored = save.keyLocations[key];
+    if (
+      stored &&
+      Number.isInteger(stored.x) && Number.isInteger(stored.y) &&
+      stored.x >= 0 && stored.y >= 0 && stored.x < cfg.width && stored.y < cfg.height
+    ) {
+      return stored;
+    }
+
+    const location = {
+      x: Math.floor(Math.random() * cfg.width),
+      y: Math.floor(Math.random() * cfg.height)
+    };
+    save.keyLocations[key] = location;
+    persist();
+    return location;
+  }
+
   function buildMine() {
     const cfg = levelConfig();
     mine = [];
@@ -111,9 +135,8 @@
       mine.push(row);
     }
 
-    const keyX = Math.floor(Math.random() * cfg.width);
-    const keyY = Math.floor(Math.random() * cfg.height);
-    keyCell = mine[keyY][keyX];
+    const keyLocation = keyLocationForLevel();
+    keyCell = mine[keyLocation.y][keyLocation.x];
     keyCell.hasKey = true;
 
     placements = [];
@@ -215,7 +238,7 @@
     if (!goldDigger) return null;
     for (const row of mine) {
       for (const cell of row) {
-        if (cell.mined || cell.type !== 'gold') continue;
+        if (cell.mined || cell.type !== 'gold' || cell.hasKey) continue;
         const d = Math.abs(cell.x - goldDigger.x) + Math.abs(cell.y - goldDigger.y);
         if (d < bestDist) {
           bestDist = d;
@@ -256,13 +279,10 @@
     running = true;
     resultShown = false;
     timeLeft = roundTime();
-    ui.startButton.disabled = true;
-    ui.undoButton.disabled = true;
-    ui.resetPlacementButton.disabled = true;
     renderUi();
   }
 
-  function finishRound(success) {
+  function finishRound(success, reason = 'timeout') {
     if (resultShown) return;
     resultShown = true;
     running = false;
@@ -274,14 +294,18 @@
       }
       persist();
       showMessage(`GOLDEN KEY FOUND!\nLevel ${completedLevel} complete`);
+    } else if (reason === 'ended') {
+      showMessage('ATTEMPT ENDED\nGold kept');
     } else {
       showMessage('SHIFT OVER\nKey not found — gold kept');
     }
 
-    ui.startButton.disabled = false;
-    ui.undoButton.disabled = false;
-    ui.resetPlacementButton.disabled = false;
     renderUi();
+  }
+
+  function endAttempt() {
+    if (!running) return;
+    finishRound(false, 'ended');
   }
 
   function nextAttempt() {
@@ -326,17 +350,20 @@
     ui.goldStat.textContent = save.gold;
     ui.timeStat.textContent = timeLeft.toFixed(1);
     ui.levelTitle.textContent = `Level ${levelIndex + 1}`;
-    ui.levelGoal.textContent = `Find the Golden Key in ${roundTime()} seconds. The key moves every run.`;
+    ui.levelGoal.textContent = `Find the Golden Key in ${roundTime()} seconds. The key stays put for this playthrough.`;
 
     const remaining = crewSize() - placements.length;
     ui.placementHint.textContent = running
-      ? 'Mining is automatic. Watch the coverage and see what gets uncovered.'
+      ? 'Mining is automatic. End the attempt early whenever you want to redeploy.'
       : remaining > 0
         ? `Tap the mine to place Skeleton ${placements.length + 1}. ${remaining} remaining.`
         : 'Crew placed. Start the shift or reset the deployment.';
 
     ui.startButton.disabled = running || placements.length === 0;
     ui.startButton.textContent = resultShown ? 'New Attempt' : 'Start Mining';
+    ui.endAttemptButton.disabled = !running;
+    ui.undoButton.disabled = running;
+    ui.resetPlacementButton.disabled = running;
     ui.crewCount.textContent = `${crewSize()} standard`;
 
     ui.crewList.innerHTML = '';
@@ -498,6 +525,7 @@
     if (resultShown) nextAttempt();
     else startRound();
   });
+  ui.endAttemptButton.addEventListener('click', endAttempt);
   ui.messageOverlay.addEventListener('click', nextAttempt);
   ui.undoButton.addEventListener('click', () => {
     if (running) return;
@@ -512,7 +540,7 @@
     draw();
   });
   ui.resetSaveButton.addEventListener('click', () => {
-    if (!confirm('Reset all gold, upgrades, and unlocked levels?')) return;
+    if (!confirm('Reset all gold, upgrades, unlocked levels, and key locations?')) return;
     save = structuredClone(DEFAULT_SAVE);
     levelIndex = 0;
     persist();

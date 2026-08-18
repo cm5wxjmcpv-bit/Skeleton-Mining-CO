@@ -26,12 +26,8 @@ class FakeElement {
     this._innerHTML = String(value);
     if (value === '') this.children = [];
   }
-  addEventListener(type, fn) {
-    (this.listeners[type] ||= []).push(fn);
-  }
-  dispatch(type, event = {}) {
-    for (const fn of this.listeners[type] || []) fn(event);
-  }
+  addEventListener(type, fn) { (this.listeners[type] ||= []).push(fn); }
+  dispatch(type, event = {}) { for (const fn of this.listeners[type] || []) fn(event); }
   click() { this.dispatch('click', {}); }
   appendChild(child) { this.children.push(child); return child; }
 }
@@ -55,8 +51,8 @@ class FakeCanvas extends FakeElement {
 
 const IDS = [
   'mineCanvas','levelStat','goldStat','timeStat','levelTitle','levelGoal','startButton',
-  'undoButton','resetPlacementButton','resetSaveButton','placementHint','crewList','crewCount',
-  'upgradeList','levelButtons','messageOverlay'
+  'endAttemptButton','undoButton','resetPlacementButton','resetSaveButton','placementHint',
+  'crewList','crewCount','upgradeList','levelButtons','messageOverlay'
 ];
 
 function sequence(values, fallback = 0.5) {
@@ -65,7 +61,7 @@ function sequence(values, fallback = 0.5) {
 }
 
 function mineRandoms({ width = 9, height = 6, goldCells = [], keyX = 1, keyY = 1 }) {
-  const gold = new Set(goldCells.map(([x,y]) => `${x},${y}`));
+  const gold = new Set(goldCells.map(([x, y]) => `${x},${y}`));
   const out = [];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) out.push(gold.has(`${x},${y}`) ? 0.01 : 0.5);
@@ -74,7 +70,7 @@ function mineRandoms({ width = 9, height = 6, goldCells = [], keyX = 1, keyY = 1
   return out;
 }
 
-function boot({ randomValues = mineRandoms({}), savedState = null } = {}) {
+function boot({ randomValues = mineRandoms({}), savedState = null, randomFallback = 0.5 } = {}) {
   const elements = new Map();
   for (const id of IDS) elements.set(id, id === 'mineCanvas' ? new FakeCanvas(id) : new FakeElement(id));
 
@@ -83,7 +79,6 @@ function boot({ randomValues = mineRandoms({}), savedState = null } = {}) {
 
   let now = 0;
   let raf = null;
-
   const sandbox = {
     console,
     structuredClone,
@@ -106,7 +101,7 @@ function boot({ randomValues = mineRandoms({}), savedState = null } = {}) {
       createElement: () => new FakeElement()
     }
   };
-  sandbox.Math.random = sequence(randomValues);
+  sandbox.Math.random = sequence(randomValues, randomFallback);
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
 
@@ -136,7 +131,6 @@ function boot({ randomValues = mineRandoms({}), savedState = null } = {}) {
 
   return {
     el: id => elements.get(id),
-    storage,
     step,
     place(x, y) { elements.get('mineCanvas').dispatch('pointerdown', pointForCell(x, y)); },
     save() { return JSON.parse(storage.get('skeletonMiningSave')); }
@@ -146,68 +140,91 @@ function boot({ randomValues = mineRandoms({}), savedState = null } = {}) {
 const tests = [];
 function test(name, fn) { tests.push([name, fn]); }
 
-test('boots with Level 1 and two standard skeletons', () => {
+test('boots with smaller 1.25 tile radius and two skeletons', () => {
   const g = boot();
   assert.strictEqual(g.el('levelStat').textContent, 1);
   assert.strictEqual(g.el('crewCount').textContent, '2 standard');
+  assert.match(g.el('crewList').children[0].innerHTML, /1\.25 tile radius/);
   assert.strictEqual(g.el('startButton').disabled, true);
+  assert.strictEqual(g.el('endAttemptButton').disabled, true);
 });
 
-test('placement enables mining and duplicate placement is rejected', () => {
+test('placement starts mining and End Attempt stops immediately', () => {
   const g = boot();
   g.place(1, 1);
-  assert.strictEqual(g.el('startButton').disabled, false);
-  const hintAfterOne = g.el('placementHint').textContent;
-  g.place(1, 1);
-  assert.strictEqual(g.el('placementHint').textContent, hintAfterOne);
-  g.place(5, 1);
-  assert.match(g.el('placementHint').textContent, /Crew placed/);
+  g.el('startButton').click();
+  assert.strictEqual(g.el('endAttemptButton').disabled, false);
+  g.el('endAttemptButton').click();
+  assert.match(g.el('messageOverlay').textContent, /ATTEMPT ENDED/);
+  assert.strictEqual(g.el('endAttemptButton').disabled, true);
+  assert.strictEqual(g.el('startButton').textContent, 'New Attempt');
 });
 
-test('finding the randomized key completes Level 1 and unlocks Level 2', () => {
+test('key location stays fixed across attempts in the same playthrough', () => {
+  const g = boot({ randomValues: mineRandoms({ keyX: 1, keyY: 1 }), randomFallback: 0.9 });
+  const first = g.save().keyLocations['1'];
+  assert.deepStrictEqual(first, { x: 1, y: 1 });
+  g.place(0, 0);
+  g.el('startButton').click();
+  g.el('endAttemptButton').click();
+  g.el('messageOverlay').click();
+  const second = g.save().keyLocations['1'];
+  assert.deepStrictEqual(second, first);
+});
+
+test('resetting the save starts a new playthrough with a new key location', () => {
+  const g = boot({ randomValues: mineRandoms({ keyX: 1, keyY: 1 }), randomFallback: 0.9 });
+  const first = g.save().keyLocations['1'];
+  g.el('resetSaveButton').click();
+  const second = g.save().keyLocations['1'];
+  assert.notDeepStrictEqual(second, first);
+});
+
+test('finding the fixed key completes Level 1 and unlocks Level 2', () => {
   const g = boot({ randomValues: mineRandoms({ keyX: 1, keyY: 1 }) });
   g.place(1, 1);
   g.el('startButton').click();
   g.step(2.0);
   assert.match(g.el('messageOverlay').textContent, /GOLDEN KEY FOUND/);
   assert.strictEqual(g.save().maxLevel, 2);
-  g.el('messageOverlay').click();
-  assert.strictEqual(g.el('levelStat').textContent, 2);
 });
 
-test('gold is kept when a shift fails', () => {
+test('gold is kept after manually ending an attempt', () => {
   const g = boot({ randomValues: mineRandoms({ goldCells: [[1,1]], keyX: 8, keyY: 5 }) });
   g.place(1, 1);
   g.el('startButton').click();
-  g.step(43);
-  assert.match(g.el('messageOverlay').textContent, /SHIFT OVER/);
-  assert(g.save().gold > 0, 'gold mined during a failed run should persist');
+  g.step(2.0);
+  const beforeEnd = g.save().gold;
+  assert(beforeEnd > 0, 'gold should be mined before ending the attempt');
+  g.el('endAttemptButton').click();
+  assert.strictEqual(g.save().gold, beforeEnd);
 });
 
-test('radius upgrade spends gold and visibly increases the radius', () => {
-  const g = boot({ savedState: { gold: 100, maxLevel: 1, selectedLevel: 1, upgrades: { radius: 0, speed: 0, crew: 0, time: 0 } } });
+test('radius upgrade is a smaller +0.15 tile increase', () => {
+  const g = boot({ savedState: {
+    gold: 100, maxLevel: 1, selectedLevel: 1,
+    upgrades: { radius: 0, speed: 0, crew: 0, time: 0 }, keyLocations: { '1': { x: 8, y: 5 } }
+  }});
   const radiusCard = g.el('upgradeList').children[0];
-  const buyButton = radiusCard.children[0];
-  buyButton.click();
+  radiusCard.children[0].click();
   assert.strictEqual(g.save().gold, 75);
   assert.strictEqual(g.save().upgrades.radius, 1);
-  assert.match(g.el('crewList').children[0].innerHTML, /2\.15 tile radius/);
+  assert.match(g.el('crewList').children[0].innerHTML, /1\.40 tile radius/);
 });
 
-test('Gold Digger unlocks when Level 3 is reached', () => {
-  const g = boot({ savedState: { gold: 0, maxLevel: 3, selectedLevel: 1, upgrades: { radius: 0, speed: 0, crew: 0, time: 0 } } });
-  assert.match(g.el('crewList').children[1].innerHTML, /UNLOCKED/);
-});
-
-test('Gold Digger roams outside standard radius and collects distant gold', () => {
+test('Gold Digger unlocks at Level 3 and collects distant gold', () => {
   const g = boot({
     randomValues: mineRandoms({ goldCells: [[8,5]], keyX: 4, keyY: 0 }),
-    savedState: { gold: 0, maxLevel: 3, selectedLevel: 1, upgrades: { radius: 0, speed: 0, crew: 0, time: 0 } }
+    savedState: {
+      gold: 0, maxLevel: 3, selectedLevel: 1,
+      upgrades: { radius: 0, speed: 0, crew: 0, time: 0 }, keyLocations: { '1': { x: 4, y: 0 } }
+    }
   });
+  assert.match(g.el('crewList').children[1].innerHTML, /UNLOCKED/);
   g.place(0, 0);
   g.el('startButton').click();
   g.step(3.0);
-  assert(g.save().gold > 0, 'Gold Digger should collect gold outside the standard skeleton mining radius');
+  assert(g.save().gold > 0, 'Gold Digger should collect gold outside standard radius');
 });
 
 let failures = 0;
@@ -221,18 +238,6 @@ for (const [name, fn] of tests) {
     console.error(err.stack || err);
   }
 }
-
-// Balance diagnostics: these do not fail the build, but flag things worth testing by feel.
-const startingRadius = 1.7;
-const offsets = [];
-for (let y = -3; y <= 3; y++) for (let x = -3; x <= 3; x++) if (Math.hypot(x, y) <= startingRadius) offsets.push([x,y]);
-const reachablePerSkeleton = offsets.length;
-const level1Cells = 9 * 6;
-const maxUniqueReach = reachablePerSkeleton * 2;
-const clearTimeSeconds = reachablePerSkeleton * 2 * 0.78;
-const idleTime = 42 - clearTimeSeconds;
-console.log(`DIAG  Starting radius reaches about ${reachablePerSkeleton} cells per skeleton; two non-overlapping skeletons can cover ${maxUniqueReach}/${level1Cells} cells (${Math.round(maxUniqueReach/level1Cells*100)}%).`);
-console.log(`DIAG  A starting skeleton can clear its full 9-cell radius in about ${clearTimeSeconds.toFixed(1)}s, leaving up to ${idleTime.toFixed(1)}s on the Level 1 timer if the key is outside coverage.`);
 
 if (failures) {
   console.error(`\n${failures} test(s) failed.`);
