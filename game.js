@@ -18,18 +18,31 @@
     placementHint: document.getElementById('placementHint'),
     crewList: document.getElementById('crewList'),
     crewCount: document.getElementById('crewCount'),
+    specialistList: document.getElementById('specialistList'),
     upgradeList: document.getElementById('upgradeList'),
     levelButtons: document.getElementById('levelButtons'),
+    oreLegend: document.getElementById('oreLegend'),
     messageOverlay: document.getElementById('messageOverlay')
   };
 
-  const LEVELS = [
-    { width: 9, height: 6, time: 42, rockHp: 2, goldChance: 0.14 },
-    { width: 11, height: 7, time: 45, rockHp: 2, goldChance: 0.14 },
-    { width: 13, height: 8, time: 48, rockHp: 3, goldChance: 0.15 },
-    { width: 14, height: 9, time: 50, rockHp: 3, goldChance: 0.16 },
-    { width: 16, height: 10, time: 54, rockHp: 4, goldChance: 0.17 }
+  const ORES = [
+    { id: 'copper', name: 'Copper', unlockLevel: 1, value: 5, color: '#b87333' },
+    { id: 'iron', name: 'Iron', unlockLevel: 5, value: 12, color: '#9ea7ad' },
+    { id: 'silver', name: 'Silver', unlockLevel: 10, value: 30, color: '#dce4ea' },
+    { id: 'gold', name: 'Gold', unlockLevel: 15, value: 70, color: '#e1b84b' },
+    { id: 'emerald', name: 'Emerald', unlockLevel: 20, value: 160, color: '#46c98a' }
   ];
+  const ORE_BY_ID = Object.fromEntries(ORES.map((ore, index) => [ore.id, { ...ore, index }]));
+
+  const LEVELS = Array.from({ length: 20 }, (_, i) => {
+    const level = i + 1;
+    return {
+      width: 14 + Math.floor((level - 1) * 10 / 19),
+      height: 10 + Math.floor((level - 1) * 7 / 19),
+      time: 45 + Math.floor((level - 1) / 4) * 3,
+      rockHp: 2 + Math.floor((level - 1) / 5)
+    };
+  });
 
   const UPGRADE_DEFS = {
     radius: { name: 'Mining Radius', desc: '+0.15 tiles to every standard skeleton.', base: 25, scale: 1.85 },
@@ -43,7 +56,9 @@
     maxLevel: 1,
     selectedLevel: 1,
     upgrades: { radius: 0, speed: 0, crew: 0, time: 0 },
-    keyLocations: {}
+    levelLayouts: {},
+    oreTotals: {},
+    specialists: { prospectors: 0, trainingTier: 0 }
   };
 
   let save = loadSave();
@@ -51,12 +66,12 @@
   let mine = [];
   let keyCell = null;
   let placements = [];
+  let prospectors = [];
   let running = false;
   let resultShown = false;
   let timeLeft = 0;
   let lastFrame = performance.now();
   let miningAccumulator = 0;
-  let goldDigger = null;
 
   function loadSave() {
     try {
@@ -66,7 +81,9 @@
         ...structuredClone(DEFAULT_SAVE),
         ...parsed,
         upgrades: { ...DEFAULT_SAVE.upgrades, ...(parsed.upgrades || {}) },
-        keyLocations: { ...(parsed.keyLocations || {}) }
+        levelLayouts: { ...(parsed.levelLayouts || {}) },
+        oreTotals: { ...(parsed.oreTotals || {}) },
+        specialists: { ...DEFAULT_SAVE.specialists, ...(parsed.specialists || {}) }
       };
     } catch {
       return structuredClone(DEFAULT_SAVE);
@@ -80,6 +97,10 @@
 
   function levelConfig() {
     return LEVELS[levelIndex];
+  }
+
+  function currentLevelNumber() {
+    return levelIndex + 1;
   }
 
   function radiusTiles() {
@@ -98,53 +119,106 @@
     return Math.max(0.18, 0.78 * Math.pow(0.88, save.upgrades.speed));
   }
 
-  function goldDiggerUnlocked() {
-    return save.maxLevel >= 3;
+  function oreChanceForLevel(level) {
+    return Math.min(0.11, 0.045 + (level - 1) * 0.0035);
   }
 
-  function keyLocationForLevel() {
-    const cfg = levelConfig();
-    const key = String(levelIndex + 1);
-    const stored = save.keyLocations[key];
-    if (
-      stored &&
-      Number.isInteger(stored.x) && Number.isInteger(stored.y) &&
-      stored.x >= 0 && stored.y >= 0 && stored.x < cfg.width && stored.y < cfg.height
-    ) {
-      return stored;
-    }
+  function activeOresForLevel(level) {
+    const unlocked = ORES.filter(ore => ore.unlockLevel <= level);
+    return unlocked.slice(-3);
+  }
 
-    const location = {
+  function chooseOre(activeOres) {
+    if (activeOres.length === 1) return activeOres[0];
+    const roll = Math.random();
+    if (activeOres.length === 2) return roll < 0.65 ? activeOres[0] : activeOres[1];
+    if (roll < 0.55) return activeOres[0];
+    if (roll < 0.85) return activeOres[1];
+    return activeOres[2];
+  }
+
+  function validLayout(layout, cfg) {
+    if (!layout || !layout.key || !Array.isArray(layout.ores)) return false;
+    const { x, y } = layout.key;
+    return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && y >= 0 && x < cfg.width && y < cfg.height;
+  }
+
+  function createLevelLayout() {
+    const cfg = levelConfig();
+    const level = currentLevelNumber();
+    const activeOres = activeOresForLevel(level);
+    const key = {
       x: Math.floor(Math.random() * cfg.width),
       y: Math.floor(Math.random() * cfg.height)
     };
-    save.keyLocations[key] = location;
+    const ores = [];
+    const chance = oreChanceForLevel(level);
+
+    for (let y = 0; y < cfg.height; y++) {
+      for (let x = 0; x < cfg.width; x++) {
+        if (x === key.x && y === key.y) continue;
+        if (Math.random() >= chance) continue;
+        const ore = chooseOre(activeOres);
+        ores.push({ x, y, type: ore.id });
+      }
+    }
+
+    return {
+      key,
+      ores,
+      activeOres: activeOres.map(ore => ore.id),
+      oreChance: chance
+    };
+  }
+
+  function layoutForLevel() {
+    const cfg = levelConfig();
+    const key = String(currentLevelNumber());
+    const stored = save.levelLayouts[key];
+    if (validLayout(stored, cfg)) return stored;
+
+    const layout = createLevelLayout();
+    save.levelLayouts[key] = layout;
     persist();
-    return location;
+    return layout;
   }
 
   function buildMine() {
     const cfg = levelConfig();
+    const layout = layoutForLevel();
     mine = [];
+
+    const oreMap = new Map(layout.ores.map(ore => [`${ore.x},${ore.y}`, ore.type]));
     for (let y = 0; y < cfg.height; y++) {
       const row = [];
       for (let x = 0; x < cfg.width; x++) {
-        const type = Math.random() < cfg.goldChance ? 'gold' : 'rock';
-        row.push({ x, y, type, hp: cfg.rockHp, maxHp: cfg.rockHp, mined: false });
+        const oreType = oreMap.get(`${x},${y}`) || null;
+        row.push({
+          x, y,
+          type: oreType || 'rock',
+          oreType,
+          hp: cfg.rockHp,
+          maxHp: cfg.rockHp,
+          mined: false,
+          hasKey: x === layout.key.x && y === layout.key.y
+        });
       }
       mine.push(row);
     }
 
-    const keyLocation = keyLocationForLevel();
-    keyCell = mine[keyLocation.y][keyLocation.x];
-    keyCell.hasKey = true;
-
+    keyCell = mine[layout.key.y][layout.key.x];
     placements = [];
     running = false;
     resultShown = false;
     timeLeft = roundTime();
     miningAccumulator = 0;
-    goldDigger = goldDiggerUnlocked() ? { x: 0, y: cfg.height - 1, target: null, progress: 0 } : null;
+    prospectors = Array.from({ length: save.specialists.prospectors }, (_, i) => ({
+      x: i % cfg.width,
+      y: cfg.height - 1 - (Math.floor(i / cfg.width) % cfg.height),
+      target: null,
+      progress: 0
+    }));
+
     hideMessage();
     renderUi();
     draw();
@@ -152,7 +226,7 @@
 
   function canvasMetrics() {
     const cfg = levelConfig();
-    const pad = 28;
+    const pad = 24;
     const cell = Math.min((canvas.width - pad * 2) / cfg.width, (canvas.height - pad * 2) / cfg.height);
     const boardW = cell * cfg.width;
     const boardH = cell * cfg.height;
@@ -177,18 +251,15 @@
     if (running || placements.length >= crewSize()) return;
     const cell = pointerToCell(event);
     if (!cell) return;
-
-    const duplicate = placements.some(p => p.x === cell.x && p.y === cell.y);
-    if (duplicate) return;
-
+    if (placements.some(p => p.x === cell.x && p.y === cell.y)) return;
     placements.push({ x: cell.x, y: cell.y });
     renderUi();
     draw();
   }
 
   function coveredBySkeleton(cell, skeleton) {
-    const dx = cell.x + 0.5 - (skeleton.x + 0.5);
-    const dy = cell.y + 0.5 - (skeleton.y + 0.5);
+    const dx = cell.x - skeleton.x;
+    const dy = cell.y - skeleton.y;
     return Math.hypot(dx, dy) <= radiusTiles();
   }
 
@@ -208,21 +279,24 @@
     return best;
   }
 
+  function rewardOre(cell) {
+    if (!cell.oreType) return;
+    const ore = ORE_BY_ID[cell.oreType];
+    if (!ore) return;
+    save.gold += ore.value;
+    save.oreTotals[cell.oreType] = (save.oreTotals[cell.oreType] || 0) + 1;
+    persist();
+  }
+
   function mineCell(cell, power = 1) {
     if (!cell || cell.mined) return;
     cell.hp -= power;
     if (cell.hp > 0) return;
 
     cell.mined = true;
-    if (cell.type === 'gold') {
-      const value = 7 + levelIndex * 2 + Math.floor(Math.random() * 5);
-      save.gold += value;
-      persist();
-    }
+    rewardOre(cell);
 
-    if (cell.hasKey) {
-      finishRound(true);
-    }
+    if (cell.hasKey) finishRound(true);
   }
 
   function standardMiningTick() {
@@ -232,16 +306,65 @@
     }
   }
 
-  function findGoldTarget() {
+  function prospectorsAvailable() {
+    return save.maxLevel >= 5;
+  }
+
+  function prospectorBuyCost() {
+    return Math.round(500 * Math.pow(2.6, save.specialists.prospectors));
+  }
+
+  function nextTrainingOre() {
+    return ORES[save.specialists.trainingTier + 1] || null;
+  }
+
+  function prospectorTrainingCost() {
+    return Math.round(1500 * Math.pow(4, save.specialists.trainingTier));
+  }
+
+  function canTrainProspectors() {
+    const next = nextTrainingOre();
+    return !!next && save.maxLevel >= next.unlockLevel;
+  }
+
+  function buyProspector() {
+    if (running || !prospectorsAvailable()) return;
+    const cost = prospectorBuyCost();
+    if (save.gold < cost) return;
+    save.gold -= cost;
+    save.specialists.prospectors += 1;
+    persist();
+    buildMine();
+  }
+
+  function trainProspectors() {
+    if (running || save.specialists.prospectors < 1 || !canTrainProspectors()) return;
+    const cost = prospectorTrainingCost();
+    if (save.gold < cost) return;
+    save.gold -= cost;
+    save.specialists.trainingTier += 1;
+    persist();
+    renderUi();
+    draw();
+  }
+
+  function prospectorCanMine(cell) {
+    if (!cell.oreType || cell.hasKey || cell.mined) return false;
+    const ore = ORE_BY_ID[cell.oreType];
+    return ore && ore.index <= save.specialists.trainingTier;
+  }
+
+  function findProspectorTarget(prospector) {
     let best = null;
-    let bestDist = Infinity;
-    if (!goldDigger) return null;
+    let bestScore = -Infinity;
     for (const row of mine) {
       for (const cell of row) {
-        if (cell.mined || cell.type !== 'gold' || cell.hasKey) continue;
-        const d = Math.abs(cell.x - goldDigger.x) + Math.abs(cell.y - goldDigger.y);
-        if (d < bestDist) {
-          bestDist = d;
+        if (!prospectorCanMine(cell)) continue;
+        const ore = ORE_BY_ID[cell.oreType];
+        const distance = Math.abs(cell.x - prospector.x) + Math.abs(cell.y - prospector.y);
+        const score = ore.value * 100 - distance;
+        if (score > bestScore) {
+          bestScore = score;
           best = cell;
         }
       }
@@ -249,23 +372,28 @@
     return best;
   }
 
-  function updateGoldDigger(dt) {
-    if (!running || !goldDiggerUnlocked() || !goldDigger) return;
-    if (!goldDigger.target || goldDigger.target.mined) goldDigger.target = findGoldTarget();
-    const target = goldDigger.target;
-    if (!target) return;
+  function updateProspectors(dt) {
+    if (!running || prospectors.length === 0) return;
 
-    goldDigger.progress += dt;
-    if (goldDigger.progress < 0.22) return;
-    goldDigger.progress = 0;
+    for (const prospector of prospectors) {
+      if (!prospector.target || prospector.target.mined || !prospectorCanMine(prospector.target)) {
+        prospector.target = findProspectorTarget(prospector);
+      }
+      const target = prospector.target;
+      if (!target) continue;
 
-    if (goldDigger.x < target.x) goldDigger.x++;
-    else if (goldDigger.x > target.x) goldDigger.x--;
-    else if (goldDigger.y < target.y) goldDigger.y++;
-    else if (goldDigger.y > target.y) goldDigger.y--;
-    else {
-      mineCell(target, 2);
-      if (target.mined) goldDigger.target = null;
+      prospector.progress += dt;
+      if (prospector.progress < 0.20) continue;
+      prospector.progress = 0;
+
+      if (prospector.x < target.x) prospector.x++;
+      else if (prospector.x > target.x) prospector.x--;
+      else if (prospector.y < target.y) prospector.y++;
+      else if (prospector.y > target.y) prospector.y--;
+      else {
+        mineCell(target, 2);
+        if (target.mined) prospector.target = null;
+      }
     }
   }
 
@@ -288,10 +416,9 @@
     running = false;
 
     if (success) {
-      const completedLevel = levelIndex + 1;
-      if (completedLevel === save.maxLevel && save.maxLevel < LEVELS.length) {
-        save.maxLevel++;
-      }
+      const completedLevel = currentLevelNumber();
+      delete save.levelLayouts[String(completedLevel)];
+      if (completedLevel === save.maxLevel && save.maxLevel < LEVELS.length) save.maxLevel++;
       persist();
       showMessage(`GOLDEN KEY FOUND!\nLevel ${completedLevel} complete`);
     } else if (reason === 'ended') {
@@ -309,13 +436,12 @@
   }
 
   function nextAttempt() {
-    if (resultShown) {
-      hideMessage();
-      if (keyCell && keyCell.mined && keyCell.hasKey && levelIndex + 1 < save.maxLevel) {
-        levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
-      }
-      buildMine();
+    if (!resultShown) return;
+    hideMessage();
+    if (keyCell && keyCell.mined && keyCell.hasKey && levelIndex + 1 < save.maxLevel) {
+      levelIndex = Math.min(levelIndex + 1, LEVELS.length - 1);
     }
+    buildMine();
   }
 
   function showMessage(text) {
@@ -329,8 +455,7 @@
 
   function upgradeCost(key) {
     const def = UPGRADE_DEFS[key];
-    const rank = save.upgrades[key];
-    return Math.round(def.base * Math.pow(def.scale, rank));
+    return Math.round(def.base * Math.pow(def.scale, save.upgrades[key]));
   }
 
   function buyUpgrade(key) {
@@ -345,12 +470,76 @@
     draw();
   }
 
+  function renderOreLegend() {
+    const active = activeOresForLevel(currentLevelNumber());
+    ui.oreLegend.innerHTML = '';
+    for (const ore of active) {
+      const chip = document.createElement('div');
+      chip.className = 'ore-chip';
+      chip.innerHTML = `<span class="ore-dot" style="background:${ore.color}"></span><strong>${ore.name}</strong><span>${ore.value}g</span>`;
+      ui.oreLegend.appendChild(chip);
+    }
+  }
+
+  function renderSpecialists() {
+    ui.specialistList.innerHTML = '';
+    const card = document.createElement('div');
+    card.className = `specialist-card ${prospectorsAvailable() ? '' : 'locked'}`;
+
+    if (!prospectorsAvailable()) {
+      card.innerHTML = '<div><strong>Prospector Skeleton — Level 5</strong><span>Unlocks for purchase at Level 5. Roams the whole mine and hunts ore.</span></div>';
+      ui.specialistList.appendChild(card);
+      return;
+    }
+
+    const trainedOre = ORES[Math.min(save.specialists.trainingTier, ORES.length - 1)];
+    const buyCost = prospectorBuyCost();
+    const buyButton = document.createElement('button');
+    buyButton.textContent = `Buy ${buyCost}g`;
+    buyButton.disabled = running || save.gold < buyCost;
+    buyButton.addEventListener('click', buyProspector);
+
+    const info = document.createElement('div');
+    info.innerHTML = `<strong>Prospector Skeleton ×${save.specialists.prospectors}</strong><span>Roams the whole mine. Current training: ${trainedOre.name} and lower ores.</span>`;
+    card.appendChild(info);
+    card.appendChild(buyButton);
+    ui.specialistList.appendChild(card);
+
+    const training = document.createElement('div');
+    training.className = 'specialist-card';
+    const next = nextTrainingOre();
+    const text = document.createElement('div');
+
+    if (!next) {
+      text.innerHTML = '<strong>Prospector Training — MAX</strong><span>Can hunt every ore currently in the prototype.</span>';
+      training.appendChild(text);
+    } else if (save.maxLevel < next.unlockLevel) {
+      text.innerHTML = `<strong>Next Training: ${next.name}</strong><span>Available when Level ${next.unlockLevel} is reached.</span>`;
+      training.classList.add('locked');
+      training.appendChild(text);
+    } else {
+      const cost = prospectorTrainingCost();
+      text.innerHTML = `<strong>Train for ${next.name}</strong><span>All owned Prospectors learn to hunt ${next.name} and lower ores.</span>`;
+      const button = document.createElement('button');
+      button.textContent = `${cost}g`;
+      button.disabled = running || save.specialists.prospectors < 1 || save.gold < cost;
+      button.addEventListener('click', trainProspectors);
+      training.appendChild(text);
+      training.appendChild(button);
+    }
+    ui.specialistList.appendChild(training);
+  }
+
   function renderUi() {
-    ui.levelStat.textContent = levelIndex + 1;
+    const level = currentLevelNumber();
+    const layout = save.levelLayouts[String(level)];
+    const active = activeOresForLevel(level);
+
+    ui.levelStat.textContent = level;
     ui.goldStat.textContent = save.gold;
     ui.timeStat.textContent = timeLeft.toFixed(1);
-    ui.levelTitle.textContent = `Level ${levelIndex + 1}`;
-    ui.levelGoal.textContent = `Find the Golden Key in ${roundTime()} seconds. The key stays put for this playthrough.`;
+    ui.levelTitle.textContent = `Level ${level}`;
+    ui.levelGoal.textContent = `Find the Golden Key in ${roundTime()} seconds. Ore and key stay fixed until this level is beaten.`;
 
     const remaining = crewSize() - placements.length;
     ui.placementHint.textContent = running
@@ -372,12 +561,14 @@
     standard.innerHTML = `<strong>Standard Skeleton ×${crewSize()}</strong><span>Fixed after placement. Mines every block inside a ${radiusTiles().toFixed(2)} tile radius.</span>`;
     ui.crewList.appendChild(standard);
 
-    const gold = document.createElement('div');
-    gold.className = `crew-card ${goldDiggerUnlocked() ? '' : 'locked'}`;
-    gold.innerHTML = goldDiggerUnlocked()
-      ? '<strong>Gold Digger ×1 — UNLOCKED</strong><span>Roams the entire map automatically and hunts gold ore. It ignores the Golden Key.</span>'
-      : '<strong>Gold Digger — Level 3</strong><span>Unlocks after reaching Level 3. Roams the entire mine searching for gold.</span>';
-    ui.crewList.appendChild(gold);
+    const density = document.createElement('div');
+    density.className = 'crew-card subtle';
+    const orePercent = Math.round(oreChanceForLevel(level) * 100);
+    density.innerHTML = `<strong>Level Ore Mix</strong><span>${orePercent}% ore chance. Active: ${active.map(o => o.name).join(', ')}.${layout ? ` ${layout.ores.length} ore deposits in this layout.` : ''}</span>`;
+    ui.crewList.appendChild(density);
+
+    renderSpecialists();
+    renderOreLegend();
 
     ui.upgradeList.innerHTML = '';
     for (const [key, def] of Object.entries(UPGRADE_DEFS)) {
@@ -400,7 +591,7 @@
       const locked = levelNum > save.maxLevel;
       button.textContent = levelNum;
       button.disabled = locked || running;
-      button.className = `${levelNum === levelIndex + 1 ? 'active' : ''} ${locked ? 'locked' : ''}`;
+      button.className = `${levelNum === level ? 'active' : ''} ${locked ? 'locked' : ''}`;
       button.addEventListener('click', () => {
         if (locked || running) return;
         levelIndex = i;
@@ -409,6 +600,15 @@
       });
       ui.levelButtons.appendChild(button);
     });
+  }
+
+  function drawOreMarker(tile, x, y, cell) {
+    const ore = ORE_BY_ID[tile.oreType];
+    if (!ore) return;
+    ctx.fillStyle = ore.color;
+    ctx.beginPath();
+    ctx.arc(x + cell / 2, y + cell / 2, cell * .14, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   function draw() {
@@ -434,20 +634,18 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('🔑', x + cell / 2, y + cell / 2);
-          } else if (tile.type === 'gold') {
-            ctx.fillStyle = '#7c6627';
-            ctx.beginPath();
-            ctx.arc(x + cell / 2, y + cell / 2, cell * .12, 0, Math.PI * 2);
-            ctx.fill();
+          } else if (tile.oreType) {
+            drawOreMarker(tile, x, y, cell);
           }
         } else {
           ctx.fillStyle = '#332920';
           ctx.fillRect(x, y, cell, cell);
           ctx.fillStyle = '#4a3a2d';
           ctx.beginPath();
-          ctx.arc(x + cell * .35, y + cell * .38, cell * .12, 0, Math.PI * 2);
-          ctx.arc(x + cell * .63, y + cell * .61, cell * .15, 0, Math.PI * 2);
+          ctx.arc(x + cell * .35, y + cell * .38, cell * .11, 0, Math.PI * 2);
+          ctx.arc(x + cell * .63, y + cell * .61, cell * .14, 0, Math.PI * 2);
           ctx.fill();
+
           if (tile.hp < tile.maxHp) {
             ctx.fillStyle = '#786253';
             ctx.fillRect(x + cell * .18, y + cell * .77, cell * .64 * (tile.hp / tile.maxHp), cell * .055);
@@ -475,21 +673,21 @@
       ctx.textBaseline = 'middle';
       ctx.fillText('☠', cx, cy);
       ctx.fillStyle = '#d0ecf7';
-      ctx.font = `700 ${Math.max(12, cell * .16)}px sans-serif`;
+      ctx.font = `700 ${Math.max(11, cell * .16)}px sans-serif`;
       ctx.fillText(String(i + 1), cx, cy + cell * .34);
     }
 
-    if (goldDiggerUnlocked() && goldDigger) {
-      const cx = left + (goldDigger.x + .5) * cell;
-      const cy = top + (goldDigger.y + .5) * cell;
-      ctx.fillStyle = '#f2c84e';
-      ctx.font = `700 ${cell * .43}px sans-serif`;
+    prospectors.forEach((p, i) => {
+      const cx = left + (p.x + .5) * cell;
+      const cy = top + (p.y + .5) * cell;
+      ctx.fillStyle = '#d88b42';
+      ctx.font = `700 ${cell * .40}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('☠', cx, cy);
-      ctx.font = `700 ${Math.max(10, cell * .14)}px sans-serif`;
-      ctx.fillText('GOLD', cx, cy + cell * .34);
-    }
+      ctx.font = `700 ${Math.max(9, cell * .12)}px sans-serif`;
+      ctx.fillText(`P${i + 1}`, cx, cy + cell * .33);
+    });
 
     ctx.strokeStyle = '#745a3f';
     ctx.lineWidth = 3;
@@ -507,7 +705,8 @@
         miningAccumulator -= miningInterval();
         standardMiningTick();
       }
-      updateGoldDigger(dt);
+      updateProspectors(dt);
+
       if (timeLeft <= 0) {
         timeLeft = 0;
         finishRound(false);
@@ -540,7 +739,7 @@
     draw();
   });
   ui.resetSaveButton.addEventListener('click', () => {
-    if (!confirm('Reset all gold, upgrades, unlocked levels, and key locations?')) return;
+    if (!confirm('Start a new playthrough? This resets gold, upgrades, specialists, unlocked levels, ore layouts, and key locations.')) return;
     save = structuredClone(DEFAULT_SAVE);
     levelIndex = 0;
     persist();
