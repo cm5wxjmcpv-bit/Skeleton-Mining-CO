@@ -1,0 +1,13 @@
+.canvas-wrap{display:flex;justify-content:center}
+.canvas-wrap canvas{max-width:760px}
+.crew-menu-panel{max-width:720px;margin:0 auto;padding:14px}
+.crew-menu-copy{margin:0 0 12px;color:var(--muted);font-size:.82rem;line-height:1.4}
+.crew-toolbar{max-width:720px;margin-left:auto;margin-right:auto}
+.result-actions{grid-template-columns:repeat(4,1fr)}
+@media(max-width:700px){
+  .mine-card{border-radius:10px}
+  .canvas-wrap canvas{max-width:none;width:100%;height:auto}
+  .crew-toolbar{grid-template-columns:auto 1fr auto}
+  .crew-menu-panel{padding:10px}
+  .result-actions{grid-template-columns:1fr}
+}
