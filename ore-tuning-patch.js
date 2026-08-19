@@ -1,7 +1,10 @@
 // Hide ore until it is actually uncovered, and make early mines richer.
-const ORE_LAYOUT_VERSION = 5;
+const ORE_LAYOUT_VERSION = 6;
 
 oreChance = function(ore, level) {
+  // Give the opening five levels a richer start, then return to the
+  // previously established ore-density progression from Level 6 onward.
+  if (level >= 1 && level <= 5) return 0.30;
   const age = Math.min(4, Math.max(0, Math.floor((level - ore.unlockLevel) / 5)));
   return 0.14 + age * 0.015;
 };
