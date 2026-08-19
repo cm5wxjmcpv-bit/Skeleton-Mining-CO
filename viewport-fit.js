@@ -51,4 +51,37 @@
   } else {
     applySkeletonScale();
   }
+
+  // Approved terrain progression: one visual theme for each five-level band.
+  // Lava Rock is the final terrain and remains active from Level 46 onward.
+  const terrainStages=[
+    {max:5,id:'grass',sprite:0},
+    {max:10,id:'dirt',sprite:1},
+    {max:15,id:'dirt-rocks',sprite:2},
+    {max:20,id:'rocky-ground',sprite:3},
+    {max:25,id:'stone',sprite:4},
+    {max:30,id:'deep-stone',sprite:5},
+    {max:35,id:'dark-stone',sprite:6},
+    {max:40,id:'cracked-stone',sprite:7},
+    {max:45,id:'volcanic-rock',sprite:8},
+    {max:Infinity,id:'lava-rock',sprite:9}
+  ];
+  const terrainSprite=new Image();
+  terrainSprite.decoding='async';
+  terrainSprite.src='assets/terrain/terrain-sprite.png?v=1';
+  terrainSprite.addEventListener('load',()=>{ if(typeof draw==='function') draw(); },{once:true});
+  window.SkeletonTerrain={
+    stages:terrainStages,
+    stageForLevel(level){return terrainStages.find(stage=>level<=stage.max)||terrainStages[terrainStages.length-1];},
+    drawTile(context,level,x,y,size){
+      if(!terrainSprite.complete||terrainSprite.naturalWidth<=0) return false;
+      const stage=this.stageForLevel(level), index=stage.sprite;
+      const sourceX=(index%5)*32, sourceY=Math.floor(index/5)*32;
+      const smoothing=context.imageSmoothingEnabled;
+      context.imageSmoothingEnabled=false;
+      context.drawImage(terrainSprite,sourceX,sourceY,32,32,x,y,size,size);
+      context.imageSmoothingEnabled=smoothing;
+      return true;
+    }
+  };
 })();

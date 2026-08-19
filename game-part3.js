@@ -31,9 +31,27 @@ function frame(now){ const dt=Math.min(.05,(now-lastFrame)/1000); lastFrame=now;
 function canvasMetrics(){ const cfg=levelConfig(); const pad=24; const cell=Math.min((canvas.width-pad*2)/cfg.width,(canvas.height-pad*2)/cfg.height); const boardW=cell*cfg.width,boardH=cell*cfg.height; return {cell,left:(canvas.width-boardW)/2,top:(canvas.height-boardH)/2,boardW,boardH}; }
 function pointerCell(e){ const r=canvas.getBoundingClientRect(),px=(e.clientX-r.left)*(canvas.width/r.width),py=(e.clientY-r.top)*(canvas.height/r.height),m=canvasMetrics(); const x=Math.floor((px-m.left)/m.cell),y=Math.floor((py-m.top)/m.cell); return mine[y]?.[x]||null; }
 function draw(){
-  if(!mine.length)return; const {cell,left,top}=canvasMetrics(); ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#080706';ctx.fillRect(0,0,canvas.width,canvas.height);
+  if(!mine.length)return;
+  const {cell,left,top}=canvasMetrics();
+  ctx.clearRect(0,0,canvas.width,canvas.height); ctx.fillStyle='#080706';ctx.fillRect(0,0,canvas.width,canvas.height);
   for(const row of mine) for(const c of row){
-    const x=left+c.x*cell,y=top+c.y*cell; ctx.fillStyle=c.mined?'#11100e':c.hp<=1?'#493d33':c.hp<CONFIG.rockHp?'#3e352d':'#302923'; ctx.fillRect(x+1,y+1,cell-2,cell-2); ctx.strokeStyle='#504238';ctx.lineWidth=1;ctx.strokeRect(x+1,y+1,cell-2,cell-2);
+    const x=left+c.x*cell,y=top+c.y*cell;
+    const tileX=x+1,tileY=y+1,tileSize=Math.max(1,cell-2);
+    if(c.mined){
+      ctx.fillStyle='#11100e';
+      ctx.fillRect(tileX,tileY,tileSize,tileSize);
+    }else{
+      const terrainDrawn=window.SkeletonTerrain?.drawTile(ctx,save.level,tileX,tileY,tileSize);
+      if(!terrainDrawn){
+        ctx.fillStyle=c.hp<=1?'#493d33':c.hp<CONFIG.rockHp?'#3e352d':'#302923';
+        ctx.fillRect(tileX,tileY,tileSize,tileSize);
+      }else if(c.hp<CONFIG.rockHp){
+        const damage=Math.min(.34,.12+(CONFIG.rockHp-c.hp)*.09);
+        ctx.fillStyle=`rgba(24,10,5,${damage})`;
+        ctx.fillRect(tileX,tileY,tileSize,tileSize);
+      }
+    }
+    ctx.strokeStyle='rgba(80,66,56,.8)';ctx.lineWidth=1;ctx.strokeRect(tileX,tileY,tileSize,tileSize);
     if(!c.mined){
       c.oreTypes.forEach((t,i)=>{const o=ORE_BY_ID[t];if(!o)return;ctx.fillStyle=o.color;const ox=x+cell*(.34+(i%2)*.30),oy=y+cell*(.36+Math.floor(i/2)*.28);ctx.beginPath();ctx.arc(ox,oy,Math.max(2,cell*.07),0,Math.PI*2);ctx.fill();});
       if(surveyTiles.includes(c)){ctx.strokeStyle='#e1b84b';ctx.lineWidth=Math.max(2,cell*.04);ctx.strokeRect(x+4,y+4,cell-8,cell-8); if(rank(27)===5){ctx.fillStyle='#ffe59a';ctx.font=`${Math.max(10,cell*.14)}px sans-serif`;ctx.fillText(c.oreTypes.length?c.oreTypes.map(t=>ORE_BY_ID[t].name[0]).join(''):'?',x+6,y+cell-7);}}
