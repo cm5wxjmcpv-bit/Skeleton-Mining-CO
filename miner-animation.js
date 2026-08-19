@@ -3,14 +3,14 @@
 (function(){
   'use strict';
 
-  const FRAME_WIDTH = 160;
-  const FRAME_HEIGHT = 190;
+  const FRAME_WIDTH = 180;
+  const FRAME_HEIGHT = 116;
   const FRAME_COLUMNS = 6;
   const IMPACT_HOLD_MS = 115;
 
   const defaultSkin = {
     id: 'basic-cartoon-v1',
-    src: 'assets/basic-miner-atlas.png',
+    src: 'assets/basic-miner-atlas.webp',
     frameWidth: FRAME_WIDTH,
     frameHeight: FRAME_HEIGHT,
     columns: FRAME_COLUMNS,
@@ -30,7 +30,7 @@
   };
 
   // Public registry: future art can be registered and assigned by miner type
-  // without touching the mining simulation.
+  // without touching the mining simulation or existing save files.
   const art = window.SkeletonMinerArt = window.SkeletonMinerArt || {
     activeSkin: 'basic-cartoon-v1',
     skins: {},
@@ -72,10 +72,9 @@
     return frames[Math.floor((now + m.index * 137) / 150) % frames.length];
   }
 
-  function swingFor(skin, m){
+  function swingAt(skin, index){
     const swings = skin.animations.swings;
-    const idx = Number.isFinite(m.animSwing) ? m.animSwing % swings.length : m.index % swings.length;
-    return swings[idx];
+    return swings[((Number(index) || 0) % swings.length + swings.length) % swings.length];
   }
 
   function currentFrame(skin, m, now){
@@ -84,17 +83,22 @@
       return walk[Math.min(walk.length - 1, Math.floor((now - m.animPlacedAt) / 130))];
     }
 
+    if(m.animCelebrateUntil && now < m.animCelebrateUntil){
+      const frames = skin.animations.celebrate;
+      return frames[Math.floor(now / 100) % frames.length];
+    }
+
     if(running && m.target){
-      const swing = swingFor(skin, m);
       const sinceImpact = now - (m.animImpactAt || 0);
-      if(sinceImpact >= 0 && sinceImpact < IMPACT_HOLD_MS) return swing.impact;
+      const lastSwing = swingAt(skin, m.animImpactSwing);
+      if(sinceImpact >= 0 && sinceImpact < IMPACT_HOLD_MS) return lastSwing.impact;
 
       const interval = Math.max(.05, MINER_TYPES[m.type]?.interval || .75);
       const remaining = Math.max(0, Math.min(interval, Number(m.cooldown) || 0));
       const progress = 1 - remaining / interval;
-      if(progress < .30) return swing.recovery;
+      if(progress < .30 && Number.isFinite(m.animImpactSwing)) return lastSwing.recovery;
       if(progress < .62) return idleFrame(skin, now, m);
-      return swing.windup;
+      return swingAt(skin, m.animSwing).windup;
     }
 
     if(!running && resultShown){
@@ -117,15 +121,43 @@
     ctx.fillText(MINER_TYPES[m.type].name[0], x, y);
   }
 
+  function drawImpactAtTarget(m, now, cell){
+    const age = now - (m.animImpactAt || 0);
+    if(age < 0 || age >= IMPACT_HOLD_MS || !Number.isFinite(m.animTargetX) || !Number.isFinite(m.animTargetY)) return;
+
+    const metrics = canvasMetrics();
+    const tx = metrics.left + (m.animTargetX + .5) * metrics.cell;
+    const ty = metrics.top + (m.animTargetY + .5) * metrics.cell;
+    const pulse = 1 - age / IMPACT_HOLD_MS;
+
+    ctx.save();
+    ctx.strokeStyle = `rgba(255,221,139,${.42 + pulse * .5})`;
+    ctx.lineWidth = Math.max(2, cell * .035);
+    ctx.beginPath();
+    ctx.arc(tx, ty, Math.max(5, cell * (.08 + .12 * (1 - pulse))), 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = `rgba(219,177,111,${.30 + pulse * .45})`;
+    for(let i = 0; i < 4; i++){
+      const a = i * Math.PI / 2 + m.index * .37;
+      const d = cell * (.11 + (1 - pulse) * .10);
+      ctx.beginPath();
+      ctx.arc(tx + Math.cos(a) * d, ty + Math.sin(a) * d, Math.max(1.5, cell * .025), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   window.drawStandardMinerVisual = function(m, x, y, cell){
     const skin = skinForMiner(m);
     const image = imageFor(skin);
+    const now = performance.now();
+
     if(!image.complete || !image.naturalWidth){
       fallbackMiner(m, x, y, cell);
       return true;
     }
 
-    const now = performance.now();
     const frame = frameRect(skin, currentFrame(skin, m, now));
     const h = cell * (skin.scale || 1.34);
     const w = h * (skin.frameWidth / skin.frameHeight);
@@ -137,6 +169,8 @@
     if(facingLeft) ctx.scale(-1, 1);
     ctx.drawImage(image, frame.sx, frame.sy, frame.sw, frame.sh, -w / 2, baseY - h, w, h);
     ctx.restore();
+
+    drawImpactAtTarget(m, now, cell);
 
     // Keep special-miner state readable without baking it into the art.
     if(m.index === eliteIndex || m.index === totemIndex){
@@ -162,14 +196,17 @@
     return true;
   };
 
-  // Record the exact real mining hit. Damage remains controlled by the original
+  // Record the exact real mining hit. Damage stays controlled by the original
   // mineCell implementation; this only timestamps the matching impact frame.
   const mineCellBeforeMinerAnimation = mineCell;
   mineCell = function(c, power, source, chainDepth = 0){
     if(power > 0 && source?.kind === 'miner' && source.miner){
       const m = source.miner;
+      const swingCount = skinForMiner(m).animations.swings.length;
+      const currentSwing = Number.isFinite(m.animSwing) ? m.animSwing : m.index % swingCount;
       m.animImpactAt = performance.now();
-      m.animSwing = ((Number.isFinite(m.animSwing) ? m.animSwing : m.index) + 1) % defaultSkin.animations.swings.length;
+      m.animImpactSwing = currentSwing;
+      m.animSwing = (currentSwing + 1) % swingCount;
       m.animTargetX = c?.x;
       m.animTargetY = c?.y;
     }
@@ -182,8 +219,10 @@
     placeSkeletonBeforeMinerAnimation(cell);
     if(placements.length > before){
       const m = placements[placements.length - 1];
+      const swingCount = skinForMiner(m).animations.swings.length;
       m.animPlacedAt = performance.now();
-      m.animSwing = m.index % defaultSkin.animations.swings.length;
+      m.animSwing = m.index % swingCount;
+      m.animImpactSwing = null;
     }
   };
 })();
