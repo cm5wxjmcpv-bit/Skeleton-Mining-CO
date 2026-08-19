@@ -68,18 +68,21 @@
   ];
   const terrainSprite=new Image();
   terrainSprite.decoding='async';
-  terrainSprite.src='assets/terrain/terrain-sprite.png?v=1';
+  terrainSprite.src='assets/terrain/terrain-sprite.png?v=2';
   terrainSprite.addEventListener('load',()=>{ if(typeof draw==='function') draw(); },{once:true});
   window.SkeletonTerrain={
     stages:terrainStages,
     stageForLevel(level){return terrainStages.find(stage=>level<=stage.max)||terrainStages[terrainStages.length-1];},
     drawTile(context,level,x,y,size){
-      if(!terrainSprite.complete||terrainSprite.naturalWidth<=0) return false;
+      if(!terrainSprite.complete||terrainSprite.naturalWidth<=0||terrainSprite.naturalHeight<=0) return false;
       const stage=this.stageForLevel(level), index=stage.sprite;
-      const sourceX=(index%5)*32, sourceY=Math.floor(index/5)*32;
+      const sourceWidth=terrainSprite.naturalWidth/5;
+      const sourceHeight=terrainSprite.naturalHeight/2;
+      const sourceX=(index%5)*sourceWidth;
+      const sourceY=Math.floor(index/5)*sourceHeight;
       const smoothing=context.imageSmoothingEnabled;
       context.imageSmoothingEnabled=false;
-      context.drawImage(terrainSprite,sourceX,sourceY,32,32,x,y,size,size);
+      context.drawImage(terrainSprite,sourceX,sourceY,sourceWidth,sourceHeight,x,y,size,size);
       context.imageSmoothingEnabled=smoothing;
       return true;
     }
