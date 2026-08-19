@@ -1,0 +1,40 @@
+/* iPhone/Safari touch and hero rendering polish v9. */
+html,
+body,
+.app-shell,
+.screen,
+button,
+select,
+input,
+label,
+.home-hero,
+.save-slot-grid,
+.slot-card {
+  touch-action: manipulation;
+}
+
+/* Preserve the game's intentional custom touch surfaces. */
+.canvas-wrap canvas,
+.tree-viewport {
+  touch-action: none;
+}
+
+/* Safari can soften scaled embedded images. Ask WebKit for a crisper resample. */
+#homeScreen .home-hero-image {
+  image-rendering: -webkit-optimize-contrast;
+  -webkit-font-smoothing: antialiased;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  filter: contrast(1.035) saturate(1.02);
+}
+
+/* Avoid text/image selection feedback during fast taps. */
+button,
+.canvas-wrap,
+.home-hero,
+.slot-card {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
