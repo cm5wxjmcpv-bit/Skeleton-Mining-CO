@@ -8,7 +8,7 @@
     body.home-mode .app-shell{height:var(--app-height,100dvh);min-height:0;overflow:hidden;padding:0}
     #homeScreen{height:var(--app-height,100dvh);max-height:var(--app-height,100dvh);padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));gap:8px}
     #homeScreen.active-screen{display:grid;grid-template-rows:minmax(210px,44%) auto;align-content:start}
-    #homeScreen .home-hero{min-height:210px;max-height:none;flex:none;background-image:url('assets/home-hero-v4.jpg?v=4')!important;background-position:center center;background-size:cover}
+    #homeScreen .home-hero{min-height:210px;max-height:none;flex:none;background-image:url('assets/home-hero-v5.jpg?v=5')!important;background-position:center center;background-size:cover}
     #homeScreen .home-actions{left:10px;right:10px;bottom:10px;max-width:none;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
     #homeScreen .home-actions .home-primary{grid-column:auto}
     #homeScreen .home-actions button{min-width:0;min-height:38px;padding:6px 5px}
