@@ -31,3 +31,38 @@ triggerWideSweep = function(c,source,chainDepth){
   }
   runBonusNotes.add('Wide Sweep');
 };
+
+// ---- Playtest balance pass: shorter rounds + rarer artifacts ----
+CONFIG.baseRoundTime = 20;
+CONFIG.artifactChance = [
+  { min: 3, max: 5, chance: 0.02 },
+  { min: 6, max: 10, chance: 0.03 },
+  { min: 11, max: 20, chance: 0.04 },
+  { min: 21, max: Infinity, chance: 0.05 }
+];
+
+currentArtifactChance = function(){
+  if(save.level < 3) return 0;
+  const band = CONFIG.artifactChance.find(b => save.level >= b.min && save.level <= b.max);
+  const pity = Math.min(0.05, save.artifactPity || 0);
+  let chance = (band?.chance || 0.05) + pity;
+
+  // Once all permanent artifacts are owned, only repeat Reset Relics remain.
+  // Cut that repeat-only rate in half so relics do not flood late-game runs.
+  const repeatRelicOnly = ['magnet','totem','timepiece','charm'].every(k => !!save.artifacts[k]);
+  if(repeatRelicOnly) chance *= 0.5;
+
+  return Math.min(1, chance);
+};
+
+const finishRunBeforeArtifactBalance = finishRun;
+finishRun = function(success, reason){
+  const pityBefore = save.artifactPity || 0;
+  const foundArtifact = artifactFoundThisRun;
+  finishRunBeforeArtifactBalance(success, reason);
+
+  if(success){
+    save.artifactPity = foundArtifact ? 0 : Math.min(0.05, pityBefore + 0.005);
+    persist();
+  }
+};
