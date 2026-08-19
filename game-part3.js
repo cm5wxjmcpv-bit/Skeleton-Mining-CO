@@ -30,6 +30,49 @@ function frame(now){ const dt=Math.min(.05,(now-lastFrame)/1000); lastFrame=now;
 
 function canvasMetrics(){ const cfg=levelConfig(); const pad=24; const cell=Math.min((canvas.width-pad*2)/cfg.width,(canvas.height-pad*2)/cfg.height); const boardW=cell*cfg.width,boardH=cell*cfg.height; return {cell,left:(canvas.width-boardW)/2,top:(canvas.height-boardH)/2,boardW,boardH}; }
 function pointerCell(e){ const r=canvas.getBoundingClientRect(),px=(e.clientX-r.left)*(canvas.width/r.width),py=(e.clientY-r.top)*(canvas.height/r.height),m=canvasMetrics(); const x=Math.floor((px-m.left)/m.cell),y=Math.floor((py-m.top)/m.cell); return mine[y]?.[x]||null; }
+
+// Terrain art is owned by the mine renderer so it cannot be lost to script load order.
+// Each style lasts five levels; Lava Rock remains active from Level 46 onward.
+const TERRAIN_STAGES=[
+  {max:5,id:'grass',sprite:0,fallback:'#71951f'},
+  {max:10,id:'dirt',sprite:1,fallback:'#875a35'},
+  {max:15,id:'dirt-rocks',sprite:2,fallback:'#765034'},
+  {max:20,id:'rocky-ground',sprite:3,fallback:'#554536'},
+  {max:25,id:'stone',sprite:4,fallback:'#626262'},
+  {max:30,id:'deep-stone',sprite:5,fallback:'#4a4a4a'},
+  {max:35,id:'dark-stone',sprite:6,fallback:'#343434'},
+  {max:40,id:'cracked-stone',sprite:7,fallback:'#555555'},
+  {max:45,id:'volcanic-rock',sprite:8,fallback:'#24201f'},
+  {max:Infinity,id:'lava-rock',sprite:9,fallback:'#54271d'}
+];
+const terrainSprite=new Image();
+terrainSprite.decoding='async';
+terrainSprite.src='assets/terrain/terrain-sprite.png?v=3';
+terrainSprite.addEventListener('load',()=>{ if(typeof draw==='function') draw(); },{once:true});
+
+function terrainStageForLevel(level){
+  return TERRAIN_STAGES.find(stage=>level<=stage.max)||TERRAIN_STAGES[TERRAIN_STAGES.length-1];
+}
+
+function drawTerrainTile(context,level,x,y,size){
+  const stage=terrainStageForLevel(level);
+  if(terrainSprite.complete&&terrainSprite.naturalWidth>0&&terrainSprite.naturalHeight>0){
+    const sourceWidth=terrainSprite.naturalWidth/5;
+    const sourceHeight=terrainSprite.naturalHeight/2;
+    const sourceX=(stage.sprite%5)*sourceWidth;
+    const sourceY=Math.floor(stage.sprite/5)*sourceHeight;
+    const smoothing=context.imageSmoothingEnabled;
+    context.imageSmoothingEnabled=false;
+    context.drawImage(terrainSprite,sourceX,sourceY,sourceWidth,sourceHeight,x,y,size,size);
+    context.imageSmoothingEnabled=smoothing;
+  }else{
+    // Theme-colored fallback makes terrain progression visible even before the PNG finishes loading.
+    context.fillStyle=stage.fallback;
+    context.fillRect(x,y,size,size);
+  }
+  return stage;
+}
+
 function draw(){
   if(!mine.length)return;
   const {cell,left,top}=canvasMetrics();
@@ -41,11 +84,8 @@ function draw(){
       ctx.fillStyle='#11100e';
       ctx.fillRect(tileX,tileY,tileSize,tileSize);
     }else{
-      const terrainDrawn=window.SkeletonTerrain?.drawTile(ctx,save.level,tileX,tileY,tileSize);
-      if(!terrainDrawn){
-        ctx.fillStyle=c.hp<=1?'#493d33':c.hp<CONFIG.rockHp?'#3e352d':'#302923';
-        ctx.fillRect(tileX,tileY,tileSize,tileSize);
-      }else if(c.hp<CONFIG.rockHp){
+      drawTerrainTile(ctx,save.level,tileX,tileY,tileSize);
+      if(c.hp<CONFIG.rockHp){
         const damage=Math.min(.34,.12+(CONFIG.rockHp-c.hp)*.09);
         ctx.fillStyle=`rgba(24,10,5,${damage})`;
         ctx.fillRect(tileX,tileY,tileSize,tileSize);
