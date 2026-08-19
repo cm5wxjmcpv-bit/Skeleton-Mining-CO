@@ -29,4 +29,13 @@
   document.body.classList.toggle('mine-play-screen',document.querySelector('.active-screen')?.id==='mineScreen');
   document.body.classList.toggle('round-running',!!running);
   fitVisibleViewport();
+
+  // Keep miner art in a late-loaded module so it can be replaced independently.
+  // The normal marker remains as a fallback until the script and atlas finish loading.
+  if(!window.SkeletonMinerArt){
+    const minerAnimationScript=document.createElement('script');
+    minerAnimationScript.src='miner-animation.js';
+    minerAnimationScript.async=true;
+    document.body.appendChild(minerAnimationScript);
+  }
 })();
