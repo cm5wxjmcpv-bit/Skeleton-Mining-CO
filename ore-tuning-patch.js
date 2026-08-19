@@ -117,15 +117,18 @@ draw = function() {
 
   for (const m of placements) {
     const x = left + (m.x + .5) * cell, y = top + (m.y + .5) * cell;
-    ctx.fillStyle = m.index === eliteIndex ? '#ffe59a' : m.index === totemIndex ? '#c9efc4' : '#eee2ce';
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(5, cell * .16), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#17130f';
-    ctx.font = `bold ${Math.max(8, cell * .12)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(MINER_TYPES[m.type].name[0], x, y);
+    const customMinerDrawn = typeof drawStandardMinerVisual === 'function' && drawStandardMinerVisual(m, x, y, cell);
+    if (!customMinerDrawn) {
+      ctx.fillStyle = m.index === eliteIndex ? '#ffe59a' : m.index === totemIndex ? '#c9efc4' : '#eee2ce';
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(5, cell * .16), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#17130f';
+      ctx.font = `bold ${Math.max(8, cell * .12)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(MINER_TYPES[m.type].name[0], x, y);
+    }
 
     const kr = rank(17);
     if (kr > 0 && !keyFound && !keyCell.mined) {
