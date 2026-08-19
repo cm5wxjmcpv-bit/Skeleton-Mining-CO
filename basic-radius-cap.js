@@ -1,46 +1,55 @@
 // Stepped mining-radius progression for the standard miners.
-// Basic Miner starts on its placement tile and earns the 8 neighboring tiles
-// one at a time. Wide-Reach gets one additional full ring at max radius.
+// Basic Miner starts with the same 5-block cross it originally used:
+// placement tile + north/east/south/west. Radius upgrades then add the
+// 4 diagonal blocks one at a time. Wide-Reach gets one additional full
+// ring after the Basic footprint is complete.
 
-const BASIC_RING_ORDER = [
-  [0,-1],   // 1: north
-  [1,-1],   // 2: northeast
-  [1,0],    // 3: east
-  [1,1],    // 4: southeast
-  [0,1],    // 5: south
-  [-1,1],   // 6: southwest
-  [-1,0],   // 7: west
-  [-1,-1]   // 8: northwest
+const BASIC_START_CROSS = [
+  [0,0],
+  [0,-1],
+  [1,0],
+  [0,1],
+  [-1,0]
+];
+
+const BASIC_DIAGONAL_ORDER = [
+  [1,-1],   // Rank 1: northeast
+  [1,1],    // Rank 2: southeast
+  [-1,1],   // Rank 3: southwest
+  [-1,-1]   // Rank 4: northwest
 ];
 
 const previousMaxRankForRadiusSteps = maxRank;
 maxRank = function(id){
-  if (Number(id) === 1) return 8;
+  if (Number(id) === 1) return 4;
   return previousMaxRankForRadiusSteps(id);
 };
 
-// Keep the old five-rank total price about the same, but spread it over
-// eight visible one-block upgrades.
-UPGRADE_DEFS[1].cost = [5,8,12,15,18,20,24,28];
-UPGRADE_DEFS[1].desc = 'Add the blocks surrounding each Basic Miner one at a time.';
-UPGRADE_DEFS[1].effect = 'Basic Miner: starts with its placement block. Each rank adds exactly 1 of the 8 surrounding blocks. Rank 8 completes the 3×3 footprint. At max radius, a Wide-Reach Miner extends one additional block all the way around for a 5×5 footprint.';
+// Keep the total cost to fully fill the Basic 3x3 footprint close to the
+// original radius-upgrade total, but make every purchase visibly add 1 tile.
+UPGRADE_DEFS[1].cost = [10,20,40,60];
+UPGRADE_DEFS[1].desc = 'Start with 5 mining blocks, then add one surrounding block per rank.';
+UPGRADE_DEFS[1].effect = 'Basic Miner starts with 5 blocks: center plus up/down/left/right. Each of 4 ranks adds one diagonal block. Rank 4 completes the 3×3 footprint. At max radius, a Wide-Reach Miner reaches one additional full block ring for a 5×5 footprint.';
 
-MINER_TYPES.basic.desc = 'Balanced miner. Radius upgrades add its 8 surrounding blocks one at a time.';
+MINER_TYPES.basic.desc = 'Balanced miner. Starts with a 5-block cross; radius upgrades add the four corners one at a time.';
 MINER_TYPES.wide.desc = '25% slower. At max Mining Radius, reaches one additional full block ring beyond the Basic Miner.';
 
-// Extend the numeric radius curve so other miner types do not fall back to
-// the old rank-0 value when Mining Radius now reaches ranks 6-8.
+// Numeric radius is still used by the other standard miner types.
 baseRadius = function(){
-  return [1.25,1.45,1.60,1.75,1.90,2.05,2.20,2.35,2.50][Math.min(8,rank(1))] || 1.25;
+  return [1.25,1.45,1.75,2.05,2.45][Math.min(4,rank(1))] || 1.25;
 };
 
 function basicStepCoverage(cell,m){
   const dx = cell.x - m.x;
   const dy = cell.y - m.y;
-  if (dx === 0 && dy === 0) return true;
-  const unlocked = Math.min(8, rank(1));
+
+  for (const [sx,sy] of BASIC_START_CROSS) {
+    if (sx === dx && sy === dy) return true;
+  }
+
+  const unlocked = Math.min(4, rank(1));
   for (let i = 0; i < unlocked; i++) {
-    if (BASIC_RING_ORDER[i][0] === dx && BASIC_RING_ORDER[i][1] === dy) return true;
+    if (BASIC_DIAGONAL_ORDER[i][0] === dx && BASIC_DIAGONAL_ORDER[i][1] === dy) return true;
   }
   return false;
 }
@@ -53,9 +62,10 @@ inRadius = function(cell,m){
   if (m.type === 'basic') return basicStepCoverage(cell,m);
 
   if (m.type === 'wide') {
-    // Wide-Reach follows the same one-at-a-time inner ring while upgrading.
-    // Once Radius is maxed, it gains one complete extra ring: 5x5 total.
-    if (rank(1) < 8) return basicStepCoverage(cell,m);
+    // While Radius is being upgraded, Wide-Reach follows the same inner
+    // footprint. Once the Basic footprint is complete, it gains one full
+    // additional ring, making a 5x5 square around its placement tile.
+    if (rank(1) < 4) return basicStepCoverage(cell,m);
     const dx = Math.abs(cell.x - m.x);
     const dy = Math.abs(cell.y - m.y);
     return dx <= 2 && dy <= 2;
@@ -84,3 +94,10 @@ chooseTarget = function(m){
   if (!best && !m.cleanSweep && rank(26) > 0) m.cleanSweep = true;
   return best;
 };
+
+// Save migration from the temporary 8-rank radius test. Any rank above 4 is
+// now simply treated as max radius. This avoids breaking current playtests.
+if (rank(1) > 4) {
+  save.upgrades[1] = 4;
+  persist();
+}
