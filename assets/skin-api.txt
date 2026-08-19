@@ -1,0 +1,3 @@
+SkeletonMinerArt.registerSkin(name, definition)
+SkeletonMinerArt.setActiveSkin(name)
+SkeletonMinerArt.setTypeSkin(type, name)
