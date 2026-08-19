@@ -1,4 +1,4 @@
-// Desktop upgrade-node click fix + iPhone/Safari double-tap guard + pre-round miner repositioning v11.
+// Desktop upgrade-node click fix + iPhone/Safari double-tap guard + pre-round miner repositioning v12.
 (function(){
   'use strict';
 
@@ -38,9 +38,11 @@
     protectDesktopTreeNodes();
   }
 
-  // Before mining starts, let the player tap/click an already placed skeleton
-  // and then tap/click a different empty cell to move that same skeleton.
+  // Before mining starts, players can either tap a placed skeleton and then
+  // tap a destination, or press/hold and drag that skeleton across the grid.
   let selectedPlacementIndex = null;
+  let dragPlacement = null;
+  const DRAG_THRESHOLD_PX = 7;
 
   function selectedPlacement(){
     if(selectedPlacementIndex == null) return null;
@@ -56,8 +58,25 @@
     });
   }
 
+  function resetMinerForPlacement(miner){
+    if(!miner) return;
+    miner.target = null;
+    miner.cooldown = 0;
+    miner.hits = 0;
+    miner.cleanSweep = false;
+  }
+
   function clearPlacementSelection(){
     selectedPlacementIndex = null;
+    dragPlacement = null;
+  }
+
+  function releaseCanvasPointer(pointerId){
+    try {
+      if(canvas.hasPointerCapture && canvas.hasPointerCapture(pointerId)){
+        canvas.releasePointerCapture(pointerId);
+      }
+    } catch {}
   }
 
   if(typeof renderMineControls === 'function'){
@@ -67,7 +86,9 @@
       const miner = !running ? selectedPlacement() : null;
       if(miner && ui && ui.placementHint){
         const label = MINER_TYPES[miner.type]?.name || 'Skeleton';
-        ui.placementHint.textContent = `${label} ${miner.index + 1} selected — tap a new tile to move him, or tap him again to cancel.`;
+        ui.placementHint.textContent = dragPlacement?.dragging
+          ? `${label} ${miner.index + 1} moving — release on an empty tile to drop him.`
+          : `${label} ${miner.index + 1} selected — tap a new tile or hold and drag him.`;
       }
       return result;
     };
@@ -96,6 +117,10 @@
   }
 
   if(canvas && typeof pointerCell === 'function'){
+    // The mine itself does not need browser panning/zoom gestures. Disabling
+    // them here makes press-and-drag reliable on iPhone Safari as well as Mac.
+    canvas.style.touchAction = 'none';
+
     canvas.addEventListener('pointerdown', function(event){
       // Mining and blast-placement behavior remain unchanged.
       if(running || blastMode){
@@ -107,35 +132,42 @@
       if(!cell) return;
       const hitIndex = placementIndexAt(cell);
 
+      // Pressing a placed skeleton starts a pending drag. If the pointer never
+      // moves far enough, pointerup treats it as the normal tap/select action.
+      if(hitIndex >= 0){
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        const miner = placements[hitIndex];
+        const wasSelected = selectedPlacementIndex === hitIndex;
+        selectedPlacementIndex = hitIndex;
+        dragPlacement = {
+          pointerId: event.pointerId,
+          index: hitIndex,
+          startClientX: event.clientX,
+          startClientY: event.clientY,
+          originalX: miner.x,
+          originalY: miner.y,
+          wasSelected,
+          dragging: false
+        };
+
+        try { canvas.setPointerCapture(event.pointerId); } catch {}
+        renderMineControls();
+        draw();
+        return;
+      }
+
       if(selectedPlacementIndex != null){
         event.preventDefault();
         event.stopImmediatePropagation();
 
-        // Tap the selected miner again to cancel move mode.
-        if(hitIndex === selectedPlacementIndex){
-          clearPlacementSelection();
-          renderMineControls();
-          draw();
-          return;
-        }
-
-        // Tapping another placed miner simply switches the selected miner.
-        if(hitIndex >= 0){
-          selectedPlacementIndex = hitIndex;
-          renderMineControls();
-          draw();
-          return;
-        }
-
-        // Empty cell: move the selected miner while preserving its type/index.
+        // Empty-cell tap: move the selected miner while preserving type/index.
         const miner = selectedPlacement();
         if(miner){
           miner.x = cell.x;
           miner.y = cell.y;
-          miner.target = null;
-          miner.cooldown = 0;
-          miner.hits = 0;
-          miner.cleanSweep = false;
+          resetMinerForPlacement(miner);
         }
         clearPlacementSelection();
         renderMineControls();
@@ -143,15 +175,78 @@
         return;
       }
 
-      // Tapping an existing miner enters move mode. Empty-cell taps still fall
-      // through to the game's normal placement handler for new skeletons.
-      if(hitIndex >= 0){
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        selectedPlacementIndex = hitIndex;
-        renderMineControls();
-        draw();
+      // Empty-cell taps with no selection fall through to the game's original
+      // pointerdown handler, which places the next skeleton normally.
+    }, { capture:true, passive:false });
+
+    canvas.addEventListener('pointermove', function(event){
+      if(!dragPlacement || dragPlacement.pointerId !== event.pointerId || running || blastMode) return;
+
+      const dx = event.clientX - dragPlacement.startClientX;
+      const dy = event.clientY - dragPlacement.startClientY;
+      if(!dragPlacement.dragging && Math.hypot(dx,dy) < DRAG_THRESHOLD_PX) return;
+
+      dragPlacement.dragging = true;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const cell = pointerCell(event);
+      if(!cell) return;
+      const occupiedIndex = placementIndexAt(cell);
+      if(occupiedIndex >= 0 && occupiedIndex !== dragPlacement.index) return;
+
+      const miner = placements[dragPlacement.index];
+      if(!miner) return;
+      if(miner.x === cell.x && miner.y === cell.y) return;
+
+      miner.x = cell.x;
+      miner.y = cell.y;
+      resetMinerForPlacement(miner);
+      renderMineControls();
+      draw();
+    }, { capture:true, passive:false });
+
+    canvas.addEventListener('pointerup', function(event){
+      if(!dragPlacement || dragPlacement.pointerId !== event.pointerId) return;
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const drag = dragPlacement;
+      releaseCanvasPointer(event.pointerId);
+      dragPlacement = null;
+
+      if(drag.dragging){
+        // The miner already follows each valid tile during pointermove, so the
+        // last valid empty tile is the drop location.
+        selectedPlacementIndex = null;
+      }else if(drag.wasSelected){
+        // A plain tap on an already-selected miner cancels selection.
+        selectedPlacementIndex = null;
+      }else{
+        // A plain tap on a different miner selects him for tap-to-move mode.
+        selectedPlacementIndex = drag.index;
       }
+
+      renderMineControls();
+      draw();
+    }, { capture:true, passive:false });
+
+    canvas.addEventListener('pointercancel', function(event){
+      if(!dragPlacement || dragPlacement.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+
+      const drag = dragPlacement;
+      const miner = placements[drag.index];
+      if(miner && drag.dragging){
+        miner.x = drag.originalX;
+        miner.y = drag.originalY;
+        resetMinerForPlacement(miner);
+      }
+      releaseCanvasPointer(event.pointerId);
+      clearPlacementSelection();
+      renderMineControls();
+      draw();
     }, { capture:true, passive:false });
   }
 
