@@ -1,0 +1,1 @@
+Miner artwork is replaceable. Change miner-animation.js or the atlas/skin registration instead of mining simulation rules.
