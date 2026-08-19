@@ -33,7 +33,7 @@ triggerWideSweep = function(c,source,chainDepth){
 };
 
 // ---- Playtest balance pass: shorter rounds + rarer artifacts ----
-CONFIG.baseRoundTime = 20;
+CONFIG.baseRoundTime = 17;
 CONFIG.artifactChance = [
   { min: 3, max: 5, chance: 0.02 },
   { min: 6, max: 10, chance: 0.03 },
