@@ -1,0 +1,88 @@
+/* Home screen polish: keep the menu inside the visible phone viewport and keep save cards compact. */
+body.home-mode{
+  height:var(--app-height,100dvh);
+  min-height:0;
+  overflow:hidden!important;
+  overscroll-behavior:none;
+}
+body.home-mode .app-shell{
+  height:var(--app-height,100dvh);
+  min-height:0;
+  overflow:hidden;
+  padding:0;
+}
+#homeScreen{
+  height:var(--app-height,100dvh);
+  min-height:0;
+  padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;
+  gap:8px!important;
+}
+#homeScreen .home-hero{
+  flex:0 0 42%;
+  min-height:0;
+  background-image:url('assets/home-hero.webp?v=2')!important;
+  background-position:center 34%!important;
+  background-size:cover!important;
+  image-rendering:auto;
+}
+#homeScreen .home-actions{
+  left:10px!important;
+  right:10px!important;
+  bottom:10px!important;
+  width:auto!important;
+  max-width:none!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:6px!important;
+}
+#homeScreen .home-actions .home-primary{grid-column:auto!important}
+#homeScreen .home-actions button{min-height:40px!important;padding:6px 8px!important;font-size:.88rem!important}
+#homeScreen .home-save-area{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  gap:5px!important;
+}
+#homeScreen .home-save-heading{flex:0 0 auto;padding:0 2px!important}
+#homeScreen .home-save-heading strong{font-size:1rem!important}
+#homeScreen .home-save-heading span{font-size:.67rem!important}
+#homeScreen .save-slot-grid{
+  min-height:0!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:6px!important;
+}
+#homeScreen .slot-card{
+  min-height:0!important;
+  padding:7px!important;
+  border-radius:9px!important;
+}
+#homeScreen .slot-title{font-size:.82rem!important;line-height:1.08!important}
+#homeScreen .slot-empty{justify-content:center!important;gap:3px!important}
+#homeScreen .slot-empty .empty-picks{font-size:20px!important;margin:0!important;line-height:1!important}
+#homeScreen .slot-empty>div:nth-child(3){display:none!important}
+#homeScreen .slot-empty button{width:100%!important;margin-top:4px!important;min-height:34px!important;padding:4px!important;font-size:.74rem!important}
+#homeScreen .slot-meta{margin:4px 0!important;font-size:.65rem!important;grid-template-columns:1fr!important;gap:2px!important}
+#homeScreen .slot-meta strong{font-size:.96rem!important;line-height:1!important}
+#homeScreen .slot-last{font-size:.58rem!important}
+#homeScreen .slot-buttons{gap:3px!important}
+#homeScreen .slot-buttons button{min-height:32px!important;padding:3px!important;font-size:.67rem!important}
+
+/* Portrait phones need a shorter hero and much denser save cards. */
+@media (orientation:portrait) and (max-width:800px){
+  #homeScreen .home-hero{flex-basis:36%!important;background-position:center 30%!important}
+  #homeScreen .home-actions{bottom:7px!important;left:7px!important;right:7px!important;gap:4px!important}
+  #homeScreen .home-actions button{min-height:36px!important;padding:4px 3px!important;font-size:.72rem!important}
+  #homeScreen .home-save-heading span{display:none!important}
+  #homeScreen .save-slot-grid{gap:5px!important}
+  #homeScreen .slot-card{padding:5px!important}
+  #homeScreen .slot-title{font-size:.76rem!important}
+  #homeScreen .slot-empty .empty-picks{font-size:18px!important}
+  #homeScreen .slot-empty button{min-height:32px!important;font-size:.68rem!important}
+}
+
+/* Landscape is the preferred play orientation: show more art while keeping all saves on one screen. */
+@media (orientation:landscape){
+  #homeScreen{padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left))!important;gap:6px!important}
+  #homeScreen .home-hero{flex-basis:55%!important;background-position:center 38%!important}
+  #homeScreen .home-save-heading{display:none!important}
+  #homeScreen .home-save-area{flex-basis:39%!important}
+  #homeScreen .slot-empty button{min-height:30px!important}
+}
