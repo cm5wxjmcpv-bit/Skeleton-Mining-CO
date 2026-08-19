@@ -1,9 +1,9 @@
-/* Skeleton Mining Co. Home Screen layout v8. Hero art is injected by home-layout-fix.js. */
+/* Skeleton Mining Co. Home Screen layout v10. Keep the approved 16:9 hero at a sane mobile size instead of stretching it to a viewport percentage. */
 body.home-mode{height:var(--app-height,100dvh);min-height:0;overflow:hidden!important;overscroll-behavior:none}
 body.home-mode .app-shell{height:var(--app-height,100dvh);min-height:0;overflow:hidden;padding:0}
 #homeScreen{height:var(--app-height,100dvh);min-height:0;padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))!important;gap:8px!important}
-#homeScreen .home-hero{flex:0 0 42%;min-height:0;position:relative;overflow:hidden;background-image:none!important;background-color:#120d0a!important}
-#homeScreen .home-hero-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;object-position:center 34%;z-index:0;pointer-events:none;user-select:none;-webkit-user-select:none}
+#homeScreen .home-hero{flex:0 0 auto!important;width:100%;aspect-ratio:16/9;max-height:34dvh;min-height:0;position:relative;overflow:hidden;background-image:none!important;background-color:#120d0a!important}
+#homeScreen .home-hero-image{position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;object-position:center center;z-index:0;pointer-events:none;user-select:none;-webkit-user-select:none}
 #homeScreen .home-actions{left:10px!important;right:10px!important;bottom:10px!important;width:auto!important;max-width:none!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important;z-index:2}
 #homeScreen .home-actions .home-primary{grid-column:auto!important}
 #homeScreen .home-actions button{min-height:40px!important;padding:6px 8px!important;font-size:.88rem!important}
@@ -24,8 +24,9 @@ body.home-mode .app-shell{height:var(--app-height,100dvh);min-height:0;overflow:
 #homeScreen .slot-buttons{gap:3px!important}
 #homeScreen .slot-buttons button{min-height:32px!important;padding:3px!important;font-size:.67rem!important}
 @media (orientation:portrait) and (max-width:800px){
-  #homeScreen .home-hero{flex-basis:36%!important}
-  #homeScreen .home-hero-image{object-position:center 30%}
+  #homeScreen{gap:6px!important}
+  #homeScreen .home-hero{width:100%;aspect-ratio:16/9;max-height:26dvh!important}
+  #homeScreen .home-hero-image{object-position:center center}
   #homeScreen .home-actions{bottom:7px!important;left:7px!important;right:7px!important;gap:4px!important}
   #homeScreen .home-actions button{min-height:36px!important;padding:4px 3px!important;font-size:.72rem!important}
   #homeScreen .home-save-heading span{display:none!important}
@@ -37,9 +38,9 @@ body.home-mode .app-shell{height:var(--app-height,100dvh);min-height:0;overflow:
 }
 @media (orientation:landscape){
   #homeScreen{padding:6px max(8px,env(safe-area-inset-right)) 6px max(8px,env(safe-area-inset-left))!important;gap:6px!important}
-  #homeScreen .home-hero{flex-basis:55%!important}
-  #homeScreen .home-hero-image{object-position:center 38%}
+  #homeScreen .home-hero{width:auto;align-self:center;aspect-ratio:16/9;max-height:52dvh!important;max-width:100%}
+  #homeScreen .home-hero-image{object-position:center center}
   #homeScreen .home-save-heading{display:none!important}
-  #homeScreen .home-save-area{flex-basis:39%!important}
+  #homeScreen .home-save-area{flex:1 1 auto!important}
   #homeScreen .slot-empty button{min-height:30px!important}
 }
