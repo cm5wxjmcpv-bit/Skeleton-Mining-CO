@@ -2,6 +2,10 @@
 (function(){
   'use strict';
 
+  const style=document.createElement('style');
+  style.textContent='#gameSaveButtonMobile,#gameHomeButtonMobile{display:none}@media(max-width:700px){#gameSaveButtonMobile,#gameHomeButtonMobile{display:inline-block}}';
+  document.head.appendChild(style);
+
   const row=document.querySelector('#mineScreen .placement-row .placement-actions');
   if(row){
     const saveButton=document.createElement('button');
