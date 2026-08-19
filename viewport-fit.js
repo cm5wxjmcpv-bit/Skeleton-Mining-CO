@@ -6,6 +6,16 @@
     root.style.setProperty('--app-height',`${height}px`);
   }
 
+  function applySkeletonScale(){
+    const draw=window.drawStandardMinerVisual;
+    if(typeof draw!=='function'||draw.__skeletonScale110) return;
+    const scaledDraw=function(m,x,y,cell){
+      return draw(m,x,y,cell*1.10);
+    };
+    scaledDraw.__skeletonScale110=true;
+    window.drawStandardMinerVisual=scaledDraw;
+  }
+
   const showScreenBeforeViewportFit=showScreen;
   showScreen=function(id){
     showScreenBeforeViewportFit(id);
@@ -31,11 +41,14 @@
   fitVisibleViewport();
 
   // Keep miner art in a late-loaded module so it can be replaced independently.
-  // The normal marker remains as a fallback until the script and atlas finish loading.
+  // The normal marker remains as a fallback until the animation module finishes loading.
   if(!window.SkeletonMinerArt){
     const minerAnimationScript=document.createElement('script');
     minerAnimationScript.src='miner-animation.js';
     minerAnimationScript.async=true;
+    minerAnimationScript.onload=applySkeletonScale;
     document.body.appendChild(minerAnimationScript);
+  } else {
+    applySkeletonScale();
   }
 })();
