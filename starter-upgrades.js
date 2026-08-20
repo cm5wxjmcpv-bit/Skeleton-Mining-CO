@@ -20,6 +20,12 @@
     def.cost[0] = Number(id) === 3 ? 150 : 25;
   }
 
+  // Never let an early rank become cheaper than the rank before it. Keep the
+  // established later/high-rank prices unchanged; only the two curves that
+  // dipped after the 25-value opening adjustment need correction.
+  UPGRADE_DEFS[2].cost = [25, 30, 32, 56, 96];
+  UPGRADE_DEFS[4].cost = [25, 30, 40, 70, 120];
+
   // Keep the later Crew Size purchase at the agreed 10,000 cost.
   UPGRADE_DEFS[3].cost = [150, 10000];
   UPGRADE_DEFS[3].effect = 'Base crew is 2. Rank 1 = 3 miners (150). Rank 2 = 4 miners (10,000). Maximum crew size is 4.';
