@@ -2,9 +2,10 @@
   'use strict';
 
   const SETTINGS_KEY='skeletonMiningAudioSettings';
-  const defaults={enabled:true,musicVolume:0.16,sfxVolume:0.34};
+  const defaults={enabled:true,musicVolume:0.50,sfxVolume:0.34};
   let settings={...defaults};
   try{settings={...defaults,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')};}catch{}
+  if(settings.musicVolume<0.50){settings.musicVolume=0.50;try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));}catch{}}
 
   let ctx=null, master=null, musicBus=null, sfxBus=null;
   let interacted=false, currentMusic='home', musicTimer=null, nextStepTime=0, musicStep=0;
