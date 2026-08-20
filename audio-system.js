@@ -98,8 +98,8 @@
     if(name==='pickaxe_hit_stone')fn(options);else fn();
   }
 
-  const mineMelody=[329.63,392,493.88,392,293.66,329.63,392,493.88,392,493.88,587.33,493.88,293.66,369.99,440,369.99];
-  const mineBass=[82.41,65.41,98,73.42];
+  const mineMelody=[146.83,174.61,220,174.61,130.81,146.83,174.61,164.81];
+  const mineBass=[73.42,65.41,61.74,69.30];
   const storeMelody=[523.25,659.25,783.99,659.25,523.25,783.99,659.25,783.99];
   const titleNotes=[164.81,196,130.81,146.83,164.81,196,146.83,164.81];
 
@@ -108,12 +108,13 @@
   function scheduleStep(when){
     if(!settings.enabled||!ctx)return;
     if(currentMusic==='mine'){
-      const bpm=112,beat=60/bpm,stepDur=beat/2,idx=musicStep%16;
-      musicTone(mineMelody[idx],Math.min(.24,stepDur*.8),.028,'triangle',when,.008,.07);
-      if(idx%2===0)noiseMusicHat(when,.012);
-      if(idx%8===0)musicTone(mineBass[Math.floor(idx/4)%4],beat*.65,.038,'triangle',when,.01,.08);
-      if(idx===4||idx===12)noiseMusicSnare(when,.018);
-      nextStepTime+=stepDur;
+      const bpm=98,beat=60/bpm,idx=musicStep%8,bar=Math.floor((musicStep%16)/4);
+      musicTone(mineMelody[idx],Math.min(.28,beat*.46),.034,'triangle',when,.012,.10);
+      musicTone(mineBass[bar%4],beat*.72,.042,'sine',when,.025,.12);
+      if(idx%2===1)noiseMusicSnare(when+.02,.010);
+      if(idx===0||idx===4)musicTone(mineBass[bar%4]/2,beat*.42,.030,'sine',when,.008,.11);
+      if(idx===6)musicTone(mineMelody[idx]*2,.42,.012,'sine',when+.05,.07,.20);
+      nextStepTime+=beat;
     }else if(currentMusic==='store'){
       const bpm=126,stepDur=(60/bpm)/2,idx=musicStep%8;
       musicTone(storeMelody[idx],.22,.029,'triangle',when,.008,.07);
