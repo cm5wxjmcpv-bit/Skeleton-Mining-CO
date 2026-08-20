@@ -1,8 +1,7 @@
-name: Prototype gameplay tests
+name: Skeleton Mining Co. tests
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -19,5 +18,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run gameplay tests
+      - name: Run legacy prototype regression tests
         run: node tests/prototype.test.cjs
+      - name: Audit live modular build
+        run: node tests/live-build-audit.test.cjs
