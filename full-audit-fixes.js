@@ -135,6 +135,7 @@
       save.currency += refund;
       save.upgrades = {};
       save.upgradeSpend = {};
+      save.minerNotes = {};
       save.artifacts.resetRelics--;
       if (typeof notesTiles !== 'undefined') notesTiles = [];
       normalizeCrewLoadout();
