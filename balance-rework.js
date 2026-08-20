@@ -60,7 +60,7 @@ UPGRADE_DEFS[23].effect = 'Every 5 blocks cleared by a miner charges its next st
 
 UPGRADE_DEFS[24].name = 'Extra Shift';
 UPGRADE_DEFS[24].desc = 'Major: if the crew still has not found the key when time expires, keep working the same partially-mined layout once.';
-UPGRADE_DEFS[24].effect = 'Once per run, after all normal time extensions are used, gain a shortened extra shift equal to 40% of the normal round time (minimum 15 seconds).';
+UPGRADE_DEFS[24].effect = 'Once per run, after all normal time extensions are used, gain a shortened extra shift equal to 40% of the normal round time (minimum 7 seconds).';
 
 UPGRADE_DEFS[25].desc = 'Multi-ore tiles are worth more.';
 UPGRADE_DEFS[25].effect = '+10% / +20% / +30% / +40% / +50% value on multi-ore tiles. No double-value rank.';
@@ -523,7 +523,7 @@ handleTimerEnd = function(){
   }
   if (rank(24) > 0 && !extraShiftUsed) {
     extraShiftUsed = true;
-    timeLeft = Math.max(15, Math.round(roundTime() * 0.40));
+    timeLeft = Math.max(7, Math.round(roundTime() * 0.40));
     runBonusNotes.add(`Extra Shift +${timeLeft}s on the same mine`);
     return;
   }
@@ -562,6 +562,8 @@ finishRun = function(success, reason){
 
     if (success) {
       save.stats.wins++;
+      if (!artifactFoundThisRun) save.artifactPity = Math.min(.05, (save.artifactPity || 0) + .005);
+      else save.artifactPity = 0;
       deepResultContext = context;
       needsBuild = true;
       persist();
@@ -583,7 +585,7 @@ finishRun = function(success, reason){
   deepResultContext = null;
   if (success) {
     save.stats.wins++;
-    if (!artifactFoundThisRun) save.artifactPity = Math.min(.10, (save.artifactPity || 0) + .01);
+    if (!artifactFoundThisRun) save.artifactPity = Math.min(.05, (save.artifactPity || 0) + .005);
     else save.artifactPity = 0;
     delete save.levelLayouts[String(save.level)];
     delete save.minerNotes[String(save.level)];
