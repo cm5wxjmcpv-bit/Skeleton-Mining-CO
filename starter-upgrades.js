@@ -9,14 +9,25 @@
 
   const STARTER_VALUE = 125;
 
-  // Fresh save slots begin with enough value to buy Radius rank 1 and then
-  // choose one or two of the inexpensive early branches.
+  // Fresh save slots begin with enough value to buy several small upgrades.
   DEFAULT_SAVE.currency = STARTER_VALUE;
+
+  // Opening economy: every regular small upgrade starts at 25. Crew Size is
+  // intentionally more expensive because another active miner is a much larger
+  // power increase. Major one-time upgrades keep their existing prices.
+  for (const [id, def] of Object.entries(UPGRADE_DEFS)) {
+    if (def.major || !Array.isArray(def.cost) || !def.cost.length) continue;
+    def.cost[0] = Number(id) === 3 ? 150 : 25;
+  }
+
+  // Keep the later Crew Size purchase at the agreed 10,000 cost.
+  UPGRADE_DEFS[3].cost = [150, 10000];
+  UPGRADE_DEFS[3].effect = 'Base crew is 2. Rank 1 = 3 miners (150). Rank 2 = 4 miners (10,000). Maximum crew size is 4.';
 
   // Radius rank 1 opens the tree at Level 1. Later ranks remain career-gated.
   UPGRADE_DEFS[1].rankGates = [1, 15, 25, 40];
   UPGRADE_DEFS[1].desc = 'Expand the Basic/Precision mining footprint one tile at a time. The first rank is available immediately; later ranks require career progress.';
-  UPGRADE_DEFS[1].effect = 'Rank gates: Level 1 / 15 / 25 / 40. Rank 4 completes the Basic/Precision 3×3 footprint.';
+  UPGRADE_DEFS[1].effect = 'Rank 1 costs 25 and is available at Level 1. Later ranks unlock at Levels 15 / 25 / 40. Rank 4 completes the Basic/Precision 3×3 footprint.';
 
   function hasAnyUpgrade(){
     return Object.values(save?.upgrades || {}).some(value => Number(value) > 0);
