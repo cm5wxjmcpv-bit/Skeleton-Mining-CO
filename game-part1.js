@@ -4,7 +4,7 @@
 const CONFIG = {
   baseRoundTime: 45,
   rockHp: 3,
-  oreUnlockEvery: 20,
+  oreUnlockEvery: 5,
   maxActiveOres: 3,
   mapStages: [
     { max: 20, width: 14, height: 10 },
@@ -23,21 +23,21 @@ const CONFIG = {
 
 const ORES = [
   ['copper','Copper',1,5,'#b87333'],
-  ['iron','Iron',20,12,'#9ea7ad'],
-  ['silver','Silver',40,30,'#dce4ea'],
-  ['gold','Gold',60,70,'#e1b84b'],
-  ['emerald','Emerald',80,160,'#46c98a'],
-  ['ruby','Ruby',100,360,'#cf4d5b'],
-  ['sapphire','Sapphire',120,800,'#4e79d8'],
-  ['platinum','Platinum',140,1800,'#d8d7cf'],
-  ['obsidian','Obsidian',160,4000,'#645572'],
-  ['diamond','Diamond',180,9000,'#9fe7ef'],
-  ['mythril','Mythril',200,20000,'#7fd2c9'],
-  ['starstone','Starstone',220,45000,'#f1a8ff'],
-  ['voidcrystal','Void Crystal',240,100000,'#9a7cff'],
-  ['sunore','Sun Ore',260,225000,'#ffd270'],
-  ['dragonite','Dragonite',280,500000,'#db7357'],
-  ['eternium','Eternium',300,1100000,'#9fffa8']
+  ['iron','Iron',10,12,'#9ea7ad'],
+  ['silver','Silver',15,30,'#dce4ea'],
+  ['gold','Gold',20,70,'#e1b84b'],
+  ['emerald','Emerald',25,160,'#46c98a'],
+  ['ruby','Ruby',30,360,'#cf4d5b'],
+  ['sapphire','Sapphire',35,800,'#4e79d8'],
+  ['platinum','Platinum',40,1800,'#d8d7cf'],
+  ['obsidian','Obsidian',45,4000,'#645572'],
+  ['diamond','Diamond',50,9000,'#9fe7ef'],
+  ['mythril','Mythril',55,20000,'#7fd2c9'],
+  ['starstone','Starstone',60,45000,'#f1a8ff'],
+  ['voidcrystal','Void Crystal',65,100000,'#9a7cff'],
+  ['sunore','Sun Ore',70,225000,'#ffd270'],
+  ['dragonite','Dragonite',75,500000,'#db7357'],
+  ['eternium','Eternium',80,1100000,'#9fffa8']
 ].map(([id,name,unlockLevel,value,color],index)=>({id,name,unlockLevel,value,color,index}));
 const ORE_BY_ID = Object.fromEntries(ORES.map(o=>[o.id,o]));
 

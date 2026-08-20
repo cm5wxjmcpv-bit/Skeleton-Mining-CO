@@ -1,5 +1,5 @@
 // Hide ore until it is actually uncovered, and make early mines richer.
-const ORE_LAYOUT_VERSION = 6;
+const ORE_LAYOUT_VERSION = 7;
 
 oreChance = function(ore, level) {
   // Give the opening five levels a richer start, then return to the
