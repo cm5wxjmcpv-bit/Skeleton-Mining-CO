@@ -121,8 +121,8 @@
       nextStepTime+=stepDur;
     }else{
       const bpm=80,beat=60/bpm,idx=musicStep%8;
-      if(idx%2===0)musicTone(titleNotes[idx],.82,.026,'sine',when,.10,.22);
-      if(idx===0)musicTone(titleNotes[idx]/2,beat*3.5,.024,'sine',when,.18,.35);
+      if(idx%2===0)musicTone(titleNotes[idx],.82,.050,'sine',when,.10,.22);
+      if(idx===0)musicTone(titleNotes[idx]/2,beat*3.5,.045,'sine',when,.18,.35);
       nextStepTime+=beat;
     }
     musicStep++;
@@ -153,14 +153,25 @@
 
   let toggle=null;
   function renderToggle(){if(toggle){toggle.textContent=settings.enabled?'Sound On':'Sound Off';toggle.setAttribute('aria-pressed',settings.enabled?'true':'false');}}
+  function positionToggle(){
+    if(!toggle)return;
+    if(document.body.classList.contains('home-mode')){
+      if(toggle.parentNode!==document.body)document.body.appendChild(toggle);
+      return;
+    }
+    const controls=document.querySelector('.home-game-controls')||document.querySelector('.top-actions');
+    if(controls&&toggle.parentNode!==controls)controls.appendChild(toggle);
+    else if(!controls&&toggle.parentNode!==document.body)document.body.appendChild(toggle);
+  }
   function createToggle(){
     if(document.getElementById('audioToggle'))return;
     toggle=document.createElement('button');toggle.id='audioToggle';toggle.type='button';toggle.className='compact audio-toggle';toggle.setAttribute('aria-label','Toggle game audio');
     const style=document.createElement('style');style.textContent=`
-      .audio-toggle{position:fixed;z-index:140;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));min-width:78px;opacity:.9}
-      body:not(.home-mode) .audio-toggle{top:max(58px,calc(env(safe-area-inset-top) + 50px))}
-      @media(max-height:520px){body:not(.home-mode) .audio-toggle{top:max(46px,calc(env(safe-area-inset-top) + 40px));min-height:30px;padding:4px 7px}}
-    `;document.head.appendChild(style);document.body.appendChild(toggle);
+      .audio-toggle{min-width:78px;opacity:.9}
+      body.home-mode .audio-toggle{position:fixed;z-index:140;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top))}
+      body:not(.home-mode) .audio-toggle{position:static;z-index:auto;right:auto;top:auto}
+      @media(max-height:520px){body:not(.home-mode) .audio-toggle{min-height:30px;padding:4px 7px}}
+    `;document.head.appendChild(style);document.body.appendChild(toggle);positionToggle();
     toggle.addEventListener('click',()=>{interacted=true;setEnabled(!settings.enabled);if(settings.enabled)SFX.button_click();});renderToggle();
   }
 
@@ -171,7 +182,7 @@
   document.addEventListener('click',e=>{const b=e.target.closest?.('button');if(!b||b.disabled||b.id==='audioToggle')return;playSfx('button_click');},true);
 
   if(typeof showScreen==='function'){
-    const originalShowScreen=showScreen;showScreen=function(id){const r=originalShowScreen(id);setTimeout(()=>syncMusic(),0);return r;};
+    const originalShowScreen=showScreen;showScreen=function(id){const r=originalShowScreen(id);setTimeout(()=>{positionToggle();syncMusic();},0);return r;};
   }
   if(typeof startRun==='function'){
     const originalStartRun=startRun;startRun=function(){const was=typeof running!=='undefined'&&running;const r=originalStartRun.apply(this,arguments);if(!was&&typeof running!=='undefined'&&running){playSfx('start_mining');syncMusic();}return r;};
